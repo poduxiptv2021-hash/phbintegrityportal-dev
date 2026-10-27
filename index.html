@@ -1371,7 +1371,7 @@ const AUTHORIZED_IGU_EMAILS = [
 });
 
 const POWER_AUTOMATE_SCOPE =
-  'https://service.flow.microsoft.com/.default';
+  'https://service.flow.microsoft.com//.default';
 
 const MICROSOFT_LOGIN_SCOPES = [
   'openid',
@@ -1990,13 +1990,24 @@ async function loadIGUDashboardData() {
       );
     }
 
+    const flowSucceeded =
+      result.success === true ||
+      String(result.success).toLowerCase() === 'true';
+
     if (
       !response.ok ||
-      !result.success
+      !flowSucceeded
     ) {
-      throw new Error(
+      const flowMessage =
         result.message ||
-        'The IGU dashboard data could not be loaded.'
+        result.error?.message ||
+        result.error?.description ||
+        '';
+
+      throw new Error(
+        flowMessage ||
+        ('IGU dashboard request failed with HTTP ' +
+         response.status + ' ' + response.statusText + '.')
       );
     }
 
@@ -2040,9 +2051,14 @@ async function loadIGUDashboardData() {
       error
     );
 
+    const dashboardErrorMessage =
+      error instanceof TypeError
+        ? 'The browser could not reach the authenticated dashboard flow. Check the flow URL, CORS response and Microsoft token permission.'
+        : (error.message ||
+           'The IGU dashboard could not be loaded.');
+
     showToast(
-      error.message ||
-      'The IGU dashboard could not be loaded.',
+      dashboardErrorMessage,
       'warning'
     );
 
