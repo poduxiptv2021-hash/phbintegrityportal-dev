@@ -3014,11 +3014,23 @@ function openCasePanel(caseId) {
   const thread = c.thread || [];
   const threadHTML = thread.length === 0
     ? '<div style="font-size:12px;color:var(--text3);text-align:center;padding:12px;">No messages yet. Send an initial message below.</div>'
-    : thread.map(m => `<div class="chat-msg ${m.from==='igu'?'igu':'me'}" style="${m.from!=='igu'?'align-self:flex-start;background:#E8F5FF;color:var(--text);':''}">
-        <div class="chat-sender">${m.from==='igu'?(m.sender||'IGU Investigator'):'Reporter'}</div>
-        <div class="chat-text">${m.text}</div>
-        <div class="chat-time">${m.time}</div>
-      </div>`).join('');
+    : thread.map(function (m) {
+        const isIGU =
+          String(m.from || '')
+            .trim()
+            .toLowerCase() === 'igu';
+
+        const senderLabel =
+          isIGU
+            ? (m.senderName || m.sender || 'IGU Officer')
+            : 'Reporter';
+
+        return `<div class="chat-msg ${isIGU ? 'igu' : 'me'}" style="${!isIGU ? 'align-self:flex-start;background:#E8F5FF;color:var(--text);' : ''}">
+          <div class="chat-sender">${escapeHtml(senderLabel)}</div>
+          <div class="chat-text">${formatChatMessageText(m.text || m.msg || '')}</div>
+          <div class="chat-time">${escapeHtml(m.time || '')}</div>
+        </div>`;
+      }).join('');
   const chatEl = document.getElementById('panel-chat-messages');
   chatEl.innerHTML = threadHTML;
   chatEl.scrollTop = chatEl.scrollHeight;
