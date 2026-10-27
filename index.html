@@ -1350,21 +1350,27 @@ const ENTRA_CLIENT_ID =
 const POWER_AUTOMATE_SCOPE =
   'https://service.flow.microsoft.com/.default';
 
+const MICROSOFT_LOGIN_SCOPES = [
+  'openid',
+  'profile',
+  'email'
+];
+
 const msalConfig = {
   auth: {
-    clientId: ENTRA_CLIENT_ID,
+    clientId: 'cd024a04-d78a-4974-a23e-e9a292c7ed30',
 
     authority:
       'https://login.microsoftonline.com/' +
-      ENTRA_TENANT_ID,
+      'cc9afa77-5900-4c38-8262-c226c4c2e27d',
 
-    redirectUri:
-      window.location.origin +
-      window.location.pathname,
+	redirectUri:
+	  'https://poduxiptv2021-hash.github.io/phbintegrityportal-dev/',
 
-    postLogoutRedirectUri:
-      window.location.origin +
-      window.location.pathname
+	postLogoutRedirectUri:
+	  'https://poduxiptv2021-hash.github.io/phbintegrityportal-dev/'
+    
+	navigateToLoginRequestUrl: true
   },
 
   cache: {
@@ -1378,65 +1384,71 @@ const msalInstance =
     msalConfig
   );
 
+const msalReady =
+  msalInstance.initialize();
+
 let signedInOfficer = null;
 
 async function initialiseMicrosoftLogin() {
-  await msalInstance.initialize();
-
-  const redirectResult =
-    await msalInstance.handleRedirectPromise();
-
-  if (redirectResult?.account) {
-    msalInstance.setActiveAccount(
-      redirectResult.account
-    );
-  }
-
-  const accounts =
-    msalInstance.getAllAccounts();
-
-  if (
-    !msalInstance.getActiveAccount() &&
-    accounts.length > 0
-  ) {
-    msalInstance.setActiveAccount(
-      accounts[0]
-    );
-  }
-
-  signedInOfficer =
-    msalInstance.getActiveAccount();
-
-  updateOfficerLoginUI();
-}
-
-
-async function signInIGUOfficer() {
   try {
-    const loginResult =
-      await msalInstance.loginPopup({
-        scopes: [
-          POWER_AUTOMATE_SCOPE
-        ],
+    await msalReady;
 
-        prompt: 'select_account'
-      });
+    const redirectResult =
+      await msalInstance.handleRedirectPromise();
 
-    msalInstance.setActiveAccount(
-      loginResult.account
-    );
+    if (redirectResult?.account) {
+      msalInstance.setActiveAccount(
+        redirectResult.account
+      );
+    }
+
+    const accounts =
+      msalInstance.getAllAccounts();
+
+    if (
+      !msalInstance.getActiveAccount() &&
+      accounts.length > 0
+    ) {
+      msalInstance.setActiveAccount(
+        accounts[0]
+      );
+    }
 
     signedInOfficer =
-      loginResult.account;
+      msalInstance.getActiveAccount();
 
     updateOfficerLoginUI();
 
-    showToast(
-      'Microsoft sign-in successful.',
-      'success'
+    if (redirectResult?.account) {
+      showPage('pg-dashboard');
+
+      showToast(
+        'Microsoft sign-in successful.',
+        'success'
+      );
+    }
+
+  } catch (error) {
+    console.error(
+      'Microsoft authentication initialization failed:',
+      error
     );
 
-    showPage('pg-dashboard');
+    showToast(
+      getMicrosoftLoginErrorMessage(error),
+      'warning'
+    );
+  }
+}
+
+async function signInIGUOfficer() {
+  try {
+    await msalReady;
+
+    await msalInstance.loginRedirect({
+      scopes: MICROSOFT_LOGIN_SCOPES,
+      prompt: 'select_account'
+    });
 
   } catch (error) {
     console.error(
@@ -1444,35 +1456,123 @@ async function signInIGUOfficer() {
       error
     );
 
+    if (
+      error?.errorCode ===
+      'interaction_in_progress'
+    ) {
+      showToast(
+        'A Microsoft sign-in is already in progress. Please refresh and try again.',
+        'warning'
+      );
+
+      return;
+    }
+
     showToast(
-      'Microsoft sign-in could not be completed.',
+      getMicrosoftLoginErrorMessage(error),
       'warning'
     );
   }
 }
 
+function getMicrosoftLoginErrorMessage(error) {
+  const errorCode =
+    String(
+      error?.errorCode ||
+      error?.code ||
+      ''
+    ).toLowerCase();
+
+  const errorMessage =
+    String(
+      error?.message ||
+      ''
+    ).toLowerCase();
+
+  if (
+    errorCode.includes('redirect_uri') ||
+    errorMessage.includes('redirect_uri') ||
+    errorMessage.includes('aadsts50011')
+  ) {
+    return (
+      'The current portal URL is not registered ' +
+      'as an Entra redirect URI.'
+    );
+  }
+
+  if (
+    errorCode.includes('consent') ||
+    errorMessage.includes('consent')
+  ) {
+    return (
+      'Microsoft permission consent is required ' +
+      'for this portal.'
+    );
+  }
+
+  if (
+    errorCode.includes('invalid_scope') ||
+    errorMessage.includes('invalid_scope') ||
+    errorMessage.includes('aadsts70011')
+  ) {
+    return (
+      'The requested Microsoft permission scope ' +
+      'is not configured correctly.'
+    );
+  }
+
+  if (
+    errorCode.includes('interaction_in_progress')
+  ) {
+    return (
+      'A Microsoft sign-in is already in progress.'
+    );
+  }
+
+  if (
+    errorCode.includes('user_cancelled')
+  ) {
+    return 'Microsoft sign-in was cancelled.';
+  }
+
+  return (
+    'Microsoft sign-in failed. Open the browser ' +
+    'console for the detailed error.'
+  );
+}
 
 async function signOutIGUOfficer() {
-  const account =
-    msalInstance.getActiveAccount();
+  try {
+    await msalReady;
 
-  signedInOfficer = null;
+    const account =
+      msalInstance.getActiveAccount() ||
+      msalInstance.getAllAccounts()[0];
 
-  if (account) {
-    await msalInstance.logoutPopup({
+    signedInOfficer = null;
+
+    await msalInstance.logoutRedirect({
       account: account,
       postLogoutRedirectUri:
         window.location.origin +
         window.location.pathname
     });
-  }
 
-  updateOfficerLoginUI();
-  showPage('pg-landing');
+  } catch (error) {
+    console.error(
+      'Microsoft sign-out failed:',
+      error
+    );
+
+    signedInOfficer = null;
+    updateOfficerLoginUI();
+    showPage('pg-landing');
+  }
 }
 
-
 async function getPowerAutomateAccessToken() {
+  await msalReady;
+
   const account =
     msalInstance.getActiveAccount();
 
@@ -1499,19 +1599,17 @@ async function getPowerAutomateAccessToken() {
 
   } catch (silentError) {
     console.warn(
-      'Silent token request failed:',
+      'Silent Power Automate token request failed:',
       silentError
     );
 
-    const tokenResult =
-      await msalInstance.acquireTokenPopup(
-        tokenRequest
-      );
+    await msalInstance.acquireTokenRedirect(
+      tokenRequest
+    );
 
-    return tokenResult.accessToken;
+    return null;
   }
 }
-
 
 function updateOfficerLoginUI() {
   const account =
