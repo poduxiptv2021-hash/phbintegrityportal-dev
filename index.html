@@ -1346,6 +1346,13 @@ const ENTRA_TENANT_ID =
 
 const ENTRA_CLIENT_ID =
   'cd024a04-d78a-4974-a23e-e9a292c7ed30';
+  
+const AUTHORIZED_IGU_EMAILS = [
+  'amirulhakimi@phb.com.my',
+  'mohdasyrafaiman@phb.com.my'
+].map(function (email) {
+  return email.trim().toLowerCase();
+});
 
 const POWER_AUTOMATE_SCOPE =
   'https://service.flow.microsoft.com/.default';
@@ -1390,6 +1397,35 @@ const msalReady =
 
 let signedInOfficer = null;
 
+function isAuthorizedIGUOfficer(account) {
+  if (!account) {
+    return false;
+  }
+
+  const claims =
+    account.idTokenClaims || {};
+
+  const possibleEmails = [
+    account.username,
+    claims.preferred_username,
+    claims.email,
+    claims.upn
+  ]
+    .filter(Boolean)
+    .map(function (value) {
+      return String(value)
+        .trim()
+        .toLowerCase();
+    });
+
+  return possibleEmails.some(
+    function (email) {
+      return AUTHORIZED_IGU_EMAILS
+        .includes(email);
+    }
+  );
+}
+
 async function initialiseMicrosoftLogin() {
   try {
     await msalReady;
@@ -1418,9 +1454,38 @@ async function initialiseMicrosoftLogin() {
     signedInOfficer =
       msalInstance.getActiveAccount();
 
+    if (
+      signedInOfficer &&
+      !isAuthorizedIGUOfficer(
+        signedInOfficer
+      )
+    ) {
+      const rejectedEmail =
+        signedInOfficer.username ||
+        'This Microsoft account';
+
+      showToast(
+        rejectedEmail +
+        ' is not authorised for the IGU dashboard.',
+        'warning'
+      );
+
+      await msalInstance.logoutRedirect({
+        account: signedInOfficer,
+
+        postLogoutRedirectUri:
+          'https://poduxiptv2021-hash.github.io/phbintegrityportal-dev/'
+      });
+
+      return;
+    }
+
     updateOfficerLoginUI();
 
-    if (redirectResult?.account) {
+    if (
+      redirectResult?.account &&
+      signedInOfficer
+    ) {
       showPage('pg-dashboard');
 
       showToast(
@@ -1446,6 +1511,36 @@ async function signInIGUOfficer() {
   try {
     await msalReady;
 
+    const existingAccount =
+      msalInstance.getActiveAccount();
+
+    if (
+      existingAccount &&
+      isAuthorizedIGUOfficer(existingAccount)
+    ) {
+      signedInOfficer =
+        existingAccount;
+
+      updateOfficerLoginUI();
+      showPage('pg-dashboard');
+
+      return;
+    }
+
+    if (
+      existingAccount &&
+      !isAuthorizedIGUOfficer(existingAccount)
+    ) {
+      await msalInstance.logoutRedirect({
+        account: existingAccount,
+
+        postLogoutRedirectUri:
+          'https://poduxiptv2021-hash.github.io/phbintegrityportal-dev/'
+      });
+
+      return;
+    }
+
     await msalInstance.loginRedirect({
       scopes: MICROSOFT_LOGIN_SCOPES,
       prompt: 'select_account'
@@ -1456,18 +1551,6 @@ async function signInIGUOfficer() {
       'Microsoft sign-in failed:',
       error
     );
-
-    if (
-      error?.errorCode ===
-      'interaction_in_progress'
-    ) {
-      showToast(
-        'A Microsoft sign-in is already in progress. Please refresh and try again.',
-        'warning'
-      );
-
-      return;
-    }
 
     showToast(
       getMicrosoftLoginErrorMessage(error),
@@ -1660,10 +1743,48 @@ function addAuditEntry(icon, bg, action, detail) {
 //  PAGE NAVIGATION
 // ══════════════════════════════════════════
 function showPage(id) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  window.scrollTo(0,0);
-  if (id === 'pg-dashboard') { renderAll(); }
+  if (id === 'pg-dashboard') {
+    const account =
+      msalInstance.getActiveAccount();
+
+    if (
+      !account ||
+      !isAuthorizedIGUOfficer(account)
+    ) {
+      showToast(
+        'IGU officer authorisation is required.',
+        'warning'
+      );
+
+      id = 'pg-login';
+    }
+  }
+
+  document
+    .querySelectorAll('.page')
+    .forEach(function (page) {
+      page.classList.remove('active');
+    });
+
+  const targetPage =
+    document.getElementById(id);
+
+  if (!targetPage) {
+    console.error(
+      'Page not found:',
+      id
+    );
+
+    return;
+  }
+
+  targetPage.classList.add('active');
+
+  window.scrollTo(0, 0);
+
+  if (id === 'pg-dashboard') {
+    renderAll();
+  }
 }
 
 // ══════════════════════════════════════════
