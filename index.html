@@ -258,6 +258,10 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 .chat-msg{border-radius:9px;padding:9px 13px;max-width:86%;}
 .chat-msg.igu{background:var(--navy);color:#fff;align-self:flex-start;}
 .chat-msg.me{background:var(--g6);color:var(--text);align-self:flex-end;}
+/* IGU dashboard perspective: reporter left, officer replies right */
+#panel-chat-messages .chat-msg.igu{align-self:flex-end;}
+#panel-chat-messages .chat-msg.me{align-self:flex-start;}
+
 .chat-sender{font-size:10px;font-weight:700;margin-bottom:3px;opacity:.65;}
 .chat-text{font-size:13px;line-height:1.5;}
 .chat-time{font-size:10px;color:var(--text4);margin-top:3px;text-align:right;}
@@ -1041,7 +1045,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
       <div class="dash-view" id="view-all">
         <div class="dash-topbar">
           <div><div class="dash-title">All Cases</div><div class="dash-sub" id="all-cases-sub">0 total cases</div></div>
-          <div class="dash-acts"><button class="btn-sm outline" onclick="showToast('Exporting cases to CSV...','success')">📤 Export</button><button class="btn-sm primary" onclick="openModal('modal-new-case')">+ New Case</button></div>
+          <div class="dash-acts"><button type="button" class="btn-sm outline" onclick="refreshIGUView('view-all')">🔄 Refresh</button><button class="btn-sm outline" onclick="showToast('Exporting cases to CSV...','success')">📤 Export</button><button class="btn-sm primary" onclick="openModal('modal-new-case')">+ New Case</button></div>
         </div>
         <div class="filter-bar">
           <input type="text" class="search-input" placeholder="🔍 Search cases..." oninput="filterCases(this.value)">
@@ -1092,7 +1096,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 
       <!-- MESSAGES -->
       <div class="dash-view" id="view-messages">
-        <div class="dash-topbar"><div><div class="dash-title">Secure Messages</div><div class="dash-sub">All reporter communications</div></div></div>
+        <div class="dash-topbar"><div><div class="dash-title">Secure Messages</div><div class="dash-sub">All reporter communications · newest first</div></div><div class="dash-acts"><button type="button" class="btn-sm outline" onclick="refreshIGUView('view-messages')">🔄 Refresh</button></div></div>
         <div class="dash-card">
           <div id="messages-list" style="padding:16px 20px;display:flex;flex-direction:column;gap:10px;"></div>
         </div>
@@ -2902,6 +2906,15 @@ function renderOverviewTable() {
   }
   el.innerHTML = CASES.slice(0,5).map(c => caseRow(c)).join('');
 }
+async function refreshIGUView(viewId) {
+  const refreshed =
+    await loadIGUDashboardData();
+
+  if (refreshed && viewId) {
+    switchDashView(viewId);
+  }
+}
+
 function renderAllCases(filter='All', search='') {
   const el = document.getElementById('all-cases-table');
   if (!el) return;
@@ -2956,7 +2969,17 @@ function renderMessages() {
     el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);"><div style="font-size:28px;margin-bottom:8px;">💬</div><div style="font-size:13px;font-weight:600;">No messages yet</div><div style="font-size:12px;margin-top:4px;">Reporter messages will appear here</div></div>';
     return;
   }
-  el.innerHTML = MESSAGES.map(m => `
+  const newestMessages =
+    [...MESSAGES].sort(function (first, second) {
+      const firstTime =
+        new Date(first.sentOn || 0).getTime();
+      const secondTime =
+        new Date(second.sentOn || 0).getTime();
+
+      return secondTime - firstTime;
+    });
+
+  el.innerHTML = newestMessages.map(m => `
     <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;border-radius:9px;cursor:pointer;transition:.15s;background:${m.unread?'var(--off)':'#fff'};border:1px solid var(--border);" onclick="switchDashView('view-all');openCasePanel('${m.caseId}');m.unread=false;saveData();updateBadges();" onmouseover="this.style.background='var(--g6)'" onmouseout="this.style.background='${m.unread?'var(--off)':'#fff'}'">
       <div style="width:36px;height:36px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">💬</div>
       <div style="flex:1;">
