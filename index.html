@@ -1358,19 +1358,20 @@ const MICROSOFT_LOGIN_SCOPES = [
 
 const msalConfig = {
   auth: {
-    clientId: 'cd024a04-d78a-4974-a23e-e9a292c7ed30',
+    clientId:
+      ENTRA_CLIENT_ID,
 
     authority:
       'https://login.microsoftonline.com/' +
-      'cc9afa77-5900-4c38-8262-c226c4c2e27d',
+      ENTRA_TENANT_ID,
 
-	redirectUri:
-	  'https://poduxiptv2021-hash.github.io/phbintegrityportal-dev/',
+    redirectUri:
+      'https://poduxiptv2021-hash.github.io/phbintegrityportal-dev/',
 
-	postLogoutRedirectUri:
-	  'https://poduxiptv2021-hash.github.io/phbintegrityportal-dev/'
-    
-	navigateToLoginRequestUrl: true
+    postLogoutRedirectUri:
+      'https://poduxiptv2021-hash.github.io/phbintegrityportal-dev/',
+
+    navigateToLoginRequestUrl: true
   },
 
   cache: {
