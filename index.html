@@ -463,6 +463,10 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
   .case-panel{width:100%;}
 }
 </style>
+<script
+  src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"
+  crossorigin="anonymous">
+</script>
 </head>
 <body>
 
@@ -905,7 +909,13 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
       <div class="form-group" style="margin-bottom:12px;"><label class="form-label">Officer ID</label><input type="text" class="form-input" id="login-id" placeholder="e.g. IGU-001"></div>
       <div class="form-group" style="margin-bottom:6px;"><label class="form-label">Password</label><input type="password" class="form-input" id="login-pw" placeholder="••••••••••"></div>
       <div style="text-align:right;margin-bottom:18px;"><span style="font-size:12px;color:var(--g2);font-weight:600;cursor:pointer;" onclick="showToast('Password reset link sent to your registered email.','success')">Forgot password?</span></div>
-      <button class="btn-login" onclick="doLogin()">Sign In →</button>
+      <button
+  type="button"
+  class="btn-login"
+  onclick="signInIGUOfficer()"
+>
+  Sign in with Microsoft
+</button>
       <div class="login-error" id="login-error">Invalid credentials. Please try again.</div>
       <div style="text-align:center;margin-top:16px;"><button onclick="showPage('pg-landing')" style="background:none;border:none;font-size:12.5px;color:var(--text3);cursor:pointer;">← Back to Portal</button></div>
       <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:14px;text-align:center;">
@@ -1322,8 +1332,206 @@ const POWER_AUTOMATE_SUBMIT_URL =
 const POWER_AUTOMATE_TRACK_URL =
   "https://defaultcc9afa7759004c388262c226c4c2e2.7d.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/00/workflows/4fdd900dd147456a87e53be7ce4c9b33/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=IOgOPsG-TAAGSMjPOHvzBY2xTD4_o7tx4gYUxI3_FnE";
 
+const POWER_AUTOMATE_SEND_MESSAGE_URL =
+  "https://defaultcc9afa7759004c388262c226c4c2e2.7d.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/04/workflows/1b091912c3374f4298f2ceb31ec2feda/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=0EzHs-qPBHhXkkSkGBEIAoUdSn0CIp7Pp2rKZ00TgCc";
+
+const POWER_AUTOMATE_IGU_MESSAGE_URL =
+  'https://defaultcc9afa7759004c388262c226c4c2e2.7d.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/03/workflows/c8f77bff53944f9686df39c3ea258298/triggers/manual/paths/invoke?api-version=1';
+
 const PORTAL_KEY =
   "PHB-IP-PILOT-2026";
+
+const ENTRA_TENANT_ID =
+  'cc9afa77-5900-4c38-8262-c226c4c2e27d';
+
+const ENTRA_CLIENT_ID =
+  'cd024a04-d78a-4974-a23e-e9a292c7ed30';
+
+const POWER_AUTOMATE_SCOPE =
+  'https://service.flow.microsoft.com/.default';
+
+const msalConfig = {
+  auth: {
+    clientId: ENTRA_CLIENT_ID,
+
+    authority:
+      'https://login.microsoftonline.com/' +
+      ENTRA_TENANT_ID,
+
+    redirectUri:
+      window.location.origin +
+      window.location.pathname,
+
+    postLogoutRedirectUri:
+      window.location.origin +
+      window.location.pathname
+  },
+
+  cache: {
+    cacheLocation: 'sessionStorage',
+    storeAuthStateInCookie: false
+  }
+};
+
+const msalInstance =
+  new msal.PublicClientApplication(
+    msalConfig
+  );
+
+let signedInOfficer = null;
+
+async function initialiseMicrosoftLogin() {
+  await msalInstance.initialize();
+
+  const redirectResult =
+    await msalInstance.handleRedirectPromise();
+
+  if (redirectResult?.account) {
+    msalInstance.setActiveAccount(
+      redirectResult.account
+    );
+  }
+
+  const accounts =
+    msalInstance.getAllAccounts();
+
+  if (
+    !msalInstance.getActiveAccount() &&
+    accounts.length > 0
+  ) {
+    msalInstance.setActiveAccount(
+      accounts[0]
+    );
+  }
+
+  signedInOfficer =
+    msalInstance.getActiveAccount();
+
+  updateOfficerLoginUI();
+}
+
+
+async function signInIGUOfficer() {
+  try {
+    const loginResult =
+      await msalInstance.loginPopup({
+        scopes: [
+          POWER_AUTOMATE_SCOPE
+        ],
+
+        prompt: 'select_account'
+      });
+
+    msalInstance.setActiveAccount(
+      loginResult.account
+    );
+
+    signedInOfficer =
+      loginResult.account;
+
+    updateOfficerLoginUI();
+
+    showToast(
+      'Microsoft sign-in successful.',
+      'success'
+    );
+
+    showPage('pg-dashboard');
+
+  } catch (error) {
+    console.error(
+      'Microsoft sign-in failed:',
+      error
+    );
+
+    showToast(
+      'Microsoft sign-in could not be completed.',
+      'warning'
+    );
+  }
+}
+
+
+async function signOutIGUOfficer() {
+  const account =
+    msalInstance.getActiveAccount();
+
+  signedInOfficer = null;
+
+  if (account) {
+    await msalInstance.logoutPopup({
+      account: account,
+      postLogoutRedirectUri:
+        window.location.origin +
+        window.location.pathname
+    });
+  }
+
+  updateOfficerLoginUI();
+  showPage('pg-landing');
+}
+
+
+async function getPowerAutomateAccessToken() {
+  const account =
+    msalInstance.getActiveAccount();
+
+  if (!account) {
+    throw new Error(
+      'Please sign in with your PHB Microsoft account.'
+    );
+  }
+
+  const tokenRequest = {
+    account: account,
+    scopes: [
+      POWER_AUTOMATE_SCOPE
+    ]
+  };
+
+  try {
+    const tokenResult =
+      await msalInstance.acquireTokenSilent(
+        tokenRequest
+      );
+
+    return tokenResult.accessToken;
+
+  } catch (silentError) {
+    console.warn(
+      'Silent token request failed:',
+      silentError
+    );
+
+    const tokenResult =
+      await msalInstance.acquireTokenPopup(
+        tokenRequest
+      );
+
+    return tokenResult.accessToken;
+  }
+}
+
+
+function updateOfficerLoginUI() {
+  const account =
+    msalInstance.getActiveAccount();
+
+  const officerName =
+    account?.name ||
+    account?.username ||
+    'IGU Officer';
+
+  const nameElements =
+    document.querySelectorAll(
+      '[data-officer-name]'
+    );
+
+  nameElements.forEach(function (element) {
+    element.textContent =
+      officerName;
+  });
+}
 
 // ══════════════════════════════════════════
 //  DATA
@@ -2299,7 +2507,12 @@ async function lookupCase() {
       );
     }
 
-    renderTrackedCase(result.case);
+    renderTrackedCase(
+  result.case,
+  Array.isArray(result.messages)
+    ? result.messages
+    : []
+);
 
   } catch (error) {
     console.error(
@@ -2346,7 +2559,7 @@ async function lookupCase() {
 }
 
 
-function renderTrackedCase(caseData) {
+function renderTrackedCase(caseData, messages = []) {
   const resultContainer =
     document.getElementById('case-result');
 
@@ -2388,6 +2601,12 @@ function renderTrackedCase(caseData) {
 
   const statusClass =
     getTrackingStatusClass(status);
+
+  const conversationHtml =
+    buildTrackingConversation(messages);
+
+  const isClosed =
+    String(status).trim().toLowerCase() === 'closed';
 
   resultContainer.style.display = 'block';
 
@@ -2468,17 +2687,222 @@ function renderTrackedCase(caseData) {
         </div>
 
       </div>
+
+      <div class="chat-box">
+
+        <div class="chat-title">
+          Conversation with IGU
+        </div>
+
+        <div
+          class="chat-messages"
+          id="track-chat-messages"
+        >
+          ${conversationHtml}
+        </div>
+
+        ${
+          isClosed
+            ? `
+              <div style="
+                padding:12px 14px;
+                background:var(--off);
+                border:1px solid var(--border);
+                border-radius:8px;
+                color:var(--text3);
+                font-size:12.5px;
+                text-align:center;
+              ">
+                This case is closed. New messages cannot be sent.
+              </div>
+            `
+            : `
+              <div class="chat-input-row">
+
+                <textarea
+                  class="chat-input"
+                  id="track-chat-input"
+                  rows="2"
+                  maxlength="2000"
+                  placeholder="Type your message to IGU..."
+                ></textarea>
+
+                <button
+                  type="button"
+                  class="btn-send"
+                  id="track-send-button"
+                  onclick="sendTrackMessage()"
+                >
+                  Send
+                </button>
+
+              </div>
+
+              <div
+                id="track-message-count"
+                style="
+                  text-align:right;
+                  color:var(--text4);
+                  font-size:10.5px;
+                  margin-top:5px;
+                "
+              >
+                0 / 2000
+              </div>
+            `
+        }
+
+      </div>
+
     </div>
   `;
+
+  initialiseTrackingChat();
 
   setTimeout(function () {
     resultContainer.scrollIntoView({
       behavior: 'smooth',
       block: 'start'
     });
+
+    scrollTrackingConversation();
   }, 100);
 }
 
+function buildTrackingConversation(messages) {
+  if (
+    !Array.isArray(messages) ||
+    messages.length === 0
+  ) {
+    return `
+      <div style="
+        padding:20px;
+        text-align:center;
+        color:var(--text3);
+        font-size:12.5px;
+        background:var(--off);
+        border-radius:9px;
+      ">
+        No messages yet. You may send a message to IGU below.
+      </div>
+    `;
+  }
+
+  return messages
+    .map(function (message) {
+      const senderType =
+        normaliseFlowValue(
+          message.senderType
+        ).trim();
+
+      const isReporter =
+        senderType.toLowerCase() ===
+        'reporter';
+
+      const messageClass =
+        isReporter ? 'me' : 'igu';
+
+      const senderName =
+        isReporter
+          ? 'You'
+          : (
+              message.senderName ||
+              'IGU Officer'
+            );
+
+      const messageText =
+        message.messageText || '';
+
+      const sentOn =
+        formatTrackingDate(
+          message.sentOn,
+          false
+        );
+
+      return `
+        <div class="chat-msg ${messageClass}">
+          <div class="chat-sender">
+            ${escapeHtml(senderName)}
+          </div>
+
+          <div class="chat-text">
+            ${formatChatMessageText(messageText)}
+          </div>
+
+          <div class="chat-time">
+            ${escapeHtml(sentOn)}
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+}
+
+
+function formatChatMessageText(value) {
+  return escapeHtml(value)
+    .replaceAll('\n', '<br>');
+}
+
+
+function initialiseTrackingChat() {
+  const input =
+    document.getElementById(
+      'track-chat-input'
+    );
+
+  const counter =
+    document.getElementById(
+      'track-message-count'
+    );
+
+  if (!input) {
+    return;
+  }
+
+  function updateCount() {
+    const length =
+      input.value.length;
+
+    if (counter) {
+      counter.textContent =
+        length + ' / 2000';
+    }
+  }
+
+  input.addEventListener(
+    'input',
+    updateCount
+  );
+
+  input.addEventListener(
+    'keydown',
+    function (event) {
+      if (
+        event.key === 'Enter' &&
+        !event.shiftKey
+      ) {
+        event.preventDefault();
+        sendTrackMessage();
+      }
+    }
+  );
+
+  updateCount();
+}
+
+
+function scrollTrackingConversation() {
+  const conversation =
+    document.getElementById(
+      'track-chat-messages'
+    );
+
+  if (conversation) {
+    conversation.scrollTop =
+      conversation.scrollHeight;
+  }
+}
 
 function buildTrackingInfoItem(label, value) {
   return `
@@ -2598,42 +3022,146 @@ document
     }
   );
 
-function sendTrackMessage(caseIdParam) {
-  const caseId = caseIdParam || window._trackCaseId;
-  const input = document.getElementById('track-chat-input');
-  const msg = input.value.trim();
-  if (!msg) return;
+async function sendTrackMessage() {
+  const input =
+    document.getElementById(
+      'track-chat-input'
+    );
 
-  const c = CASES.find(x => x.id === caseId);
-  if (!c) { showToast('Case not found.','warning'); return; }
-  if (!c.thread) c.thread = [];
+  const sendButton =
+    document.getElementById(
+      'track-send-button'
+    );
 
-  const now = new Date();
-  const timeStr = now.toLocaleDateString('en-MY',{day:'numeric',month:'short',year:'numeric'}) + ', ' +
-                  now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+  const messageText =
+    input?.value?.trim();
 
-  // Add reporter message to thread
-  c.thread.push({ from:'reporter', text: msg, time: timeStr, read: false });
+  if (!messageText) {
+    showToast(
+      'Please enter a message.',
+      'warning'
+    );
 
-  // Add to MESSAGES for IGU dashboard unread indicator
-  MESSAGES.unshift({ caseId: c.id, from: c.anonymous ? 'Anonymous Reporter' : 'Identified Reporter', msg: msg, time: timeStr, unread: true });
-
-  // Add audit entry
-  addAuditEntry('💬','var(--blue-pale)','New message on Case #'+c.id, 'Reporter sent a message via secure thread');
-
-  saveData();
-
-  // Re-render the thread
-  const container = document.getElementById('track-chat-messages');
-  if (container) {
-    const div = document.createElement('div');
-    div.className = 'chat-msg me';
-    div.innerHTML = `<div class="chat-sender">${c.anonymous ? 'You (Anonymous)' : 'You'}</div><div class="chat-text">${msg}</div><div class="chat-time">${timeStr}</div>`;
-    container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
+    input?.focus();
+    return;
   }
-  input.value = '';
-  showToast('Message sent to IGU securely.','success');
+
+  if (messageText.length > 2000) {
+    showToast(
+      'Message cannot exceed 2,000 characters.',
+      'warning'
+    );
+
+    return;
+  }
+
+  const trackingCode =
+    document.getElementById(
+      'track-input'
+    )
+      ?.value
+      ?.trim()
+      ?.toUpperCase();
+
+  if (!trackingCode) {
+    showToast(
+      'Tracking code is missing.',
+      'warning'
+    );
+
+    return;
+  }
+
+  try {
+    if (sendButton) {
+      sendButton.disabled = true;
+      sendButton.textContent =
+        'Sending...';
+    }
+
+    input.disabled = true;
+
+    const response = await fetch(
+      POWER_AUTOMATE_SEND_MESSAGE_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type':
+            'application/json'
+        },
+        body: JSON.stringify({
+          trackingCode:
+            trackingCode,
+
+          messageText:
+            messageText,
+
+          portalKey:
+            PORTAL_KEY
+        })
+      }
+    );
+
+    const responseText =
+      await response.text();
+
+    let result;
+
+    try {
+      result =
+        JSON.parse(responseText);
+
+    } catch (parseError) {
+      console.error(
+        'Send-message response:',
+        responseText
+      );
+
+      throw new Error(
+        'The messaging service returned an invalid response.'
+      );
+    }
+
+    if (
+      !response.ok ||
+      !result.success
+    ) {
+      throw new Error(
+        result.message ||
+        'Message could not be sent.'
+      );
+    }
+
+    input.value = '';
+
+    showToast(
+      'Message sent successfully.',
+      'success'
+    );
+
+    await lookupCase();
+
+  } catch (error) {
+    console.error(
+      'Reporter message failed:',
+      error
+    );
+
+    showToast(
+      error.message ||
+      'Failed to send message.',
+      'warning'
+    );
+
+  } finally {
+    input.disabled = false;
+
+    if (sendButton) {
+      sendButton.disabled = false;
+      sendButton.textContent =
+        'Send';
+    }
+  }
 }
 
 // ══════════════════════════════════════════
@@ -2672,6 +3200,20 @@ function toggleFaq(btn) {
   icon.textContent = open ? '+' : '−';
   item.classList.toggle('open', !open);
 }
+
+document.addEventListener(
+  'DOMContentLoaded',
+  function () {
+    initialiseMicrosoftLogin()
+      .catch(function (error) {
+        console.error(
+          'Microsoft authentication initialization failed:',
+          error
+        );
+      });
+  }
+);
+
 </script>
 </body>
 </html>
