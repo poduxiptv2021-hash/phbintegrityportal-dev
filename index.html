@@ -1232,7 +1232,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
         <div class="chat-messages" id="panel-chat-messages" style="max-height:220px;overflow-y:auto;background:var(--off);border-radius:9px;padding:12px;"></div>
         <div class="chat-input-row" style="margin-top:8px;">
           <textarea class="chat-input" id="panel-chat-input" rows="2" placeholder="Reply to reporter anonymously..."></textarea>
-          <button class="btn-send" onclick="sendPanelMessage()">Send</button>
+          <button type="button" class="btn-send" id="panel-send-button" onclick="sendPanelMessage()">Send</button>
         </div>
       </div>
       <div class="panel-section">
@@ -3095,34 +3095,190 @@ function saveCaseUpdates() {
     showToast('Case updated — reporter will see status change in their tracking page.', 'success');
   }
 }
-function sendPanelMessage() {
+async function sendPanelMessage() {
   const caseId = window._panelCaseId;
-  const input = document.getElementById('panel-chat-input');
-  const msg = input.value.trim();
-  if (!msg) return;
+  const input =
+    document.getElementById('panel-chat-input');
+  const sendButton =
+    document.getElementById('panel-send-button');
 
-  const c = CASES.find(x => x.id === caseId);
-  if (!c) { showToast('Error: Case not found.','warning'); return; }
-  if (!c.thread) c.thread = [];
+  const messageText =
+    input?.value?.trim() || '';
 
-  const now = new Date();
-  const timeStr = now.toLocaleDateString('en-MY',{day:'numeric',month:'short',year:'numeric'}) + ', ' +
-                  now.toLocaleTimeString('en-MY',{hour:'2-digit',minute:'2-digit'});
+  if (!messageText) {
+    showToast(
+      'Please enter a reply.',
+      'warning'
+    );
+    input?.focus();
+    return;
+  }
 
-  // Push IGU message into shared thread
-  c.thread.push({ from:'igu', sender:'Mohd Asyraf Aiman (IGU Manager)', text:msg, time:timeStr, read:true });
-  addAuditEntry('💬','var(--g6)','IGU replied on Case #'+c.id,'Message sent to reporter via secure thread');
-  saveData();
+  if (messageText.length > 2000) {
+    showToast(
+      'Reply cannot exceed 2,000 characters.',
+      'warning'
+    );
+    return;
+  }
 
-  // Render in panel
-  const container = document.getElementById('panel-chat-messages');
-  const div = document.createElement('div');
-  div.className = 'chat-msg igu';
-  div.innerHTML = `<div class="chat-sender">Mohd Asyraf Aiman (IGU Manager)</div><div class="chat-text">${msg}</div><div class="chat-time">${timeStr}</div>`;
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
-  input.value = '';
-  showToast('✓ Message sent — reporter can see this via their tracking code.','success');
+  const caseRecord =
+    CASES.find(function (item) {
+      return String(item.id) ===
+        String(caseId);
+    });
+
+  if (!caseRecord) {
+    showToast(
+      'Error: Case not found.',
+      'warning'
+    );
+    return;
+  }
+
+  const account =
+    msalInstance.getActiveAccount();
+
+  if (
+    !account ||
+    !isAuthorizedIGUOfficer(account)
+  ) {
+    showToast(
+      'Please sign in using an authorised IGU account.',
+      'warning'
+    );
+    return;
+  }
+
+  const officerDisplayName =
+    account.name ||
+    account.idTokenClaims?.name ||
+    account.username ||
+    'IGU Officer';
+
+  const officerUPN =
+    account.username ||
+    account.idTokenClaims?.preferred_username ||
+    account.idTokenClaims?.email ||
+    '';
+
+  const clientMessageId =
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : 'igu-' + Date.now() + '-' +
+        Math.random().toString(16).slice(2);
+
+  try {
+    if (sendButton) {
+      sendButton.disabled = true;
+      sendButton.textContent = 'Sending...';
+    }
+
+    input.disabled = true;
+
+    const accessToken =
+      await getPowerAutomateAccessToken();
+
+    if (!accessToken) {
+      return;
+    }
+
+    const response = await fetch(
+      POWER_AUTOMATE_IGU_MESSAGE_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization':
+            'Bearer ' + accessToken,
+          'Content-Type':
+            'application/json'
+        },
+        body: JSON.stringify({
+          trackingCode:
+            caseRecord.code,
+          messageText:
+            messageText,
+          clientMessageId:
+            clientMessageId,
+          officerDisplayName:
+            officerDisplayName,
+          officerUPN:
+            officerUPN,
+          visibleToReporter:
+            true
+        })
+      }
+    );
+
+    const responseText =
+      await response.text();
+
+    let result = {};
+
+    if (responseText) {
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error(
+          'IGU reply flow response:',
+          responseText
+        );
+        throw new Error(
+          'The IGU reply service returned an invalid response.'
+        );
+      }
+    }
+
+    const flowSucceeded =
+      result.success === true ||
+      String(result.success).toLowerCase() === 'true';
+
+    if (!response.ok || !flowSucceeded) {
+      throw new Error(
+        result.message ||
+        result.error?.message ||
+        ('IGU reply failed with HTTP ' +
+         response.status + '.')
+      );
+    }
+
+    input.value = '';
+
+    showToast(
+      result.duplicate
+        ? 'This reply was already recorded.'
+        : 'Reply sent. The reporter can now view it in Track My Case.',
+      'success'
+    );
+
+    const refreshed =
+      await loadIGUDashboardData();
+
+    if (refreshed) {
+      openCasePanel(String(caseId));
+    }
+
+  } catch (error) {
+    console.error(
+      'IGU reply failed:',
+      error
+    );
+
+    showToast(
+      error.message ||
+      'The IGU reply could not be sent.',
+      'warning'
+    );
+
+  } finally {
+    input.disabled = false;
+
+    if (sendButton) {
+      sendButton.disabled = false;
+      sendButton.textContent = 'Send';
+    }
+  }
 }
 
 function savePanelNotes() {
