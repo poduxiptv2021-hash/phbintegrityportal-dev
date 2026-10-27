@@ -2987,290 +2987,179 @@ function renderMessages() {
     return;
   }
 
-  const conversationsByCase = {};
-
-  MESSAGES.forEach(function (message) {
-    const groupKey =
-      String(
-        message.trackingCode ||
-        message.caseItemId ||
-        message.caseId ||
-        'unlinked'
+  const newestMessages =
+    [...MESSAGES].sort(function (first, second) {
+      return (
+        new Date(second.sentOn || 0).getTime() -
+        new Date(first.sentOn || 0).getTime()
       );
+    });
 
-    if (!conversationsByCase[groupKey]) {
-      conversationsByCase[groupKey] = [];
-    }
+  el.innerHTML = newestMessages
+    .map(function (message) {
+      const isIGU =
+        String(
+          message.senderType ||
+          message.from ||
+          ''
+        )
+          .trim()
+          .toLowerCase() === 'igu';
 
-    conversationsByCase[groupKey].push(message);
-  });
-
-  const conversations =
-    Object.entries(conversationsByCase)
-      .map(function (entry) {
-        const messages = entry[1]
-          .slice()
-          .sort(function (first, second) {
-            return (
-              new Date(first.sentOn || 0).getTime() -
-              new Date(second.sentOn || 0).getTime()
-            );
-          });
-
-        const latestMessage =
-          messages[messages.length - 1];
-
-        const caseRecord =
-          CASES.find(function (item) {
-            const sameTrackingCode =
-              latestMessage.trackingCode &&
-              item.code &&
-              latestMessage.trackingCode
-                .toUpperCase() ===
-              item.code.toUpperCase();
-
-            const sameItemId =
-              latestMessage.caseItemId != null &&
-              item.itemId != null &&
-              String(latestMessage.caseItemId) ===
-              String(item.itemId);
-
-            const sameDashboardId =
-              String(latestMessage.caseId || '') ===
-              String(item.id || '');
-
-            return (
-              sameTrackingCode ||
-              sameItemId ||
-              sameDashboardId
-            );
-          });
-
-        return {
-          key: entry[0],
-          messages: messages,
-          latestMessage: latestMessage,
-          latestTime:
-            new Date(
-              latestMessage.sentOn || 0
-            ).getTime(),
-          caseRecord: caseRecord
-        };
-      })
-      .sort(function (first, second) {
-        return second.latestTime - first.latestTime;
-      });
-
-  el.innerHTML = conversations
-    .map(function (conversation) {
       const caseRecord =
-        conversation.caseRecord;
+        CASES.find(function (item) {
+          const sameTrackingCode =
+            message.trackingCode &&
+            item.code &&
+            String(message.trackingCode).toUpperCase() ===
+            String(item.code).toUpperCase();
+
+          const sameCaseItemId =
+            message.caseItemId != null &&
+            item.itemId != null &&
+            String(message.caseItemId) ===
+            String(item.itemId);
+
+          const sameDashboardId =
+            String(message.caseId || '') ===
+            String(item.id || '');
+
+          return (
+            sameTrackingCode ||
+            sameCaseItemId ||
+            sameDashboardId
+          );
+        });
 
       const trackingCode =
         caseRecord?.code ||
-        conversation.latestMessage.trackingCode ||
-        ('Case #' +
-          (conversation.latestMessage.caseId || 'Unknown'));
-
-      const caseTitle =
-        caseRecord?.title ||
-        'Integrity Case Conversation';
+        message.trackingCode ||
+        ('Case #' + (message.caseId || 'Unknown'));
 
       const dashboardCaseId =
         caseRecord?.id ||
-        conversation.latestMessage.caseId ||
+        message.caseId ||
         '';
 
-      const unreadCount =
-        conversation.messages.filter(
-          function (message) {
-            return message.unread;
-          }
-        ).length;
+      const senderLabel =
+        isIGU
+          ? (
+              message.senderName ||
+              message.from ||
+              'IGU Officer'
+            )
+          : 'Reporter';
 
-      const latestDisplayTime =
-        conversation.latestMessage.time ||
+      const messageText =
+        message.messageText ||
+        message.msg ||
+        '';
+
+      const timeLabel =
+        message.time ||
         formatDashboardDateTime(
-          parsePortalDate(
-            conversation.latestMessage.sentOn
-          )
+          parsePortalDate(message.sentOn)
         );
 
-      const bubbleHtml =
-        conversation.messages
-          .map(function (message) {
-            const isIGU =
-              String(
-                message.senderType ||
-                message.from ||
-                ''
-              )
-                .trim()
-                .toLowerCase() === 'igu';
-
-            const senderLabel =
-              isIGU
-                ? (
-                    message.senderName ||
-                    message.from ||
-                    'IGU Officer'
-                  )
-                : 'Reporter';
-
-            const messageText =
-              message.messageText ||
-              message.msg ||
-              '';
-
-            const timeLabel =
-              message.time ||
-              formatDashboardDateTime(
-                parsePortalDate(message.sentOn)
-              );
-
-            return `
-              <div style="
-                display:flex;
-                justify-content:${isIGU ? 'flex-end' : 'flex-start'};
-                margin:8px 0;
-              ">
-                <div style="
-                  width:fit-content;
-                  max-width:min(76%,720px);
-                  padding:11px 14px;
-                  border-radius:${isIGU ? '14px 14px 4px 14px' : '14px 14px 14px 4px'};
-                  background:${isIGU ? 'var(--navy)' : '#E8F5FF'};
-                  color:${isIGU ? '#fff' : 'var(--text)'};
-                  box-shadow:0 2px 8px rgba(0,30,60,.07);
-                ">
-                  <div style="
-                    display:flex;
-                    align-items:center;
-                    gap:7px;
-                    margin-bottom:5px;
-                    font-size:11.5px;
-                    font-weight:700;
-                    color:${isIGU ? 'rgba(255,255,255,.72)' : 'var(--text3)'};
-                  ">
-                    <span>${escapeHtml(senderLabel)}</span>
-                    ${message.unread && !isIGU
-                      ? '<span style="background:var(--red);color:#fff;padding:1px 6px;border-radius:10px;font-size:9px;">NEW</span>'
-                      : ''}
-                  </div>
-
-                  <div style="
-                    font-size:13.5px;
-                    line-height:1.5;
-                    overflow-wrap:anywhere;
-                  ">
-                    ${formatChatMessageText(messageText)}
-                  </div>
-
-                  <div style="
-                    margin-top:6px;
-                    text-align:right;
-                    font-size:10.5px;
-                    color:${isIGU ? 'rgba(255,255,255,.65)' : 'var(--text4)'};
-                  ">
-                    ${escapeHtml(timeLabel)}
-                  </div>
-                </div>
-              </div>
-            `;
-          })
-          .join('');
-
       return `
-        <section style="
-          border:1px solid var(--border);
-          border-radius:14px;
-          background:#fff;
-          overflow:hidden;
-          box-shadow:0 3px 12px rgba(0,35,65,.05);
+        <div style="
+          display:flex;
+          justify-content:${isIGU ? 'flex-end' : 'flex-start'};
+          padding:2px 2px;
         ">
-          <div style="
-            display:flex;
-            justify-content:space-between;
-            align-items:flex-start;
-            gap:14px;
-            padding:14px 16px;
-            border-bottom:1px solid var(--border);
-            background:var(--off);
-          ">
-            <div style="min-width:0;">
+          <button
+            type="button"
+            onclick="openMessageFromInbox('${escapeHtml(String(dashboardCaseId))}')"
+            ${dashboardCaseId ? '' : 'disabled'}
+            style="
+              appearance:none;
+              width:fit-content;
+              max-width:min(78%,820px);
+              padding:0;
+              border:0;
+              background:transparent;
+              text-align:left;
+              cursor:${dashboardCaseId ? 'pointer' : 'default'};
+            "
+            title="Open case conversation"
+          >
+            <div style="
+              padding:11px 14px;
+              border-radius:${isIGU ? '14px 14px 4px 14px' : '14px 14px 14px 4px'};
+              background:${isIGU ? 'var(--navy)' : '#E8F5FF'};
+              color:${isIGU ? '#fff' : 'var(--text)'};
+              border:1px solid ${isIGU ? 'var(--navy)' : '#CFE8F8'};
+              box-shadow:0 2px 8px rgba(0,30,60,.07);
+            ">
               <div style="
                 display:flex;
                 flex-wrap:wrap;
                 align-items:center;
+                justify-content:space-between;
                 gap:8px;
+                margin-bottom:6px;
               ">
-                <strong style="
-                  font-size:13.5px;
-                  color:var(--text);
-                  overflow-wrap:anywhere;
+                <div style="
+                  display:flex;
+                  flex-wrap:wrap;
+                  align-items:center;
+                  gap:7px;
                 ">
-                  ${escapeHtml(trackingCode)}
-                </strong>
+                  <span style="
+                    font-size:11.5px;
+                    font-weight:700;
+                    color:${isIGU ? 'rgba(255,255,255,.78)' : 'var(--text3)'};
+                  ">
+                    ${escapeHtml(senderLabel)}
+                  </span>
 
-                ${unreadCount > 0
-                  ? `<span style="font-size:10px;background:var(--red);color:#fff;padding:2px 7px;border-radius:10px;font-weight:700;">${unreadCount} NEW</span>`
+                  <span style="
+                    padding:2px 7px;
+                    border-radius:999px;
+                    background:${isIGU ? 'rgba(255,255,255,.14)' : '#fff'};
+                    border:1px solid ${isIGU ? 'rgba(255,255,255,.22)' : '#BFDDED'};
+                    color:${isIGU ? '#fff' : 'var(--blue)'};
+                    font-size:9.5px;
+                    font-weight:700;
+                    letter-spacing:.02em;
+                  ">
+                    ${escapeHtml(trackingCode)}
+                  </span>
+                </div>
+
+                ${message.unread && !isIGU
+                  ? '<span style="font-size:9px;background:var(--red);color:#fff;padding:2px 7px;border-radius:10px;font-weight:700;">NEW</span>'
                   : ''}
               </div>
 
               <div style="
-                margin-top:3px;
-                font-size:12px;
-                color:var(--text3);
+                font-size:13.5px;
+                line-height:1.5;
+                overflow-wrap:anywhere;
               ">
-                ${escapeHtml(caseTitle)}
+                ${formatChatMessageText(messageText)}
+              </div>
+
+              <div style="
+                margin-top:6px;
+                text-align:right;
+                font-size:10.5px;
+                color:${isIGU ? 'rgba(255,255,255,.65)' : 'var(--text4)'};
+              ">
+                ${escapeHtml(timeLabel)}
               </div>
             </div>
-
-            <div style="
-              flex-shrink:0;
-              text-align:right;
-              font-size:10.5px;
-              color:var(--text4);
-            ">
-              Latest activity<br>
-              <strong style="color:var(--text3);">
-                ${escapeHtml(latestDisplayTime)}
-              </strong>
-            </div>
-          </div>
-
-          <div style="
-            padding:12px 16px;
-            background:linear-gradient(180deg,#F8FFFD 0%,#F2FBF9 100%);
-          ">
-            ${bubbleHtml}
-          </div>
-
-          <div style="
-            display:flex;
-            justify-content:flex-end;
-            padding:10px 16px 14px;
-            background:#fff;
-          ">
-            <button
-              type="button"
-              class="btn-sm primary"
-              onclick="openMessageConversation('${escapeHtml(String(dashboardCaseId))}')"
-              ${dashboardCaseId ? '' : 'disabled'}
-            >
-              Open Conversation →
-            </button>
-          </div>
-        </section>
+          </button>
+        </div>
       `;
     })
     .join('');
 }
 
-function openMessageConversation(caseId) {
+function openMessageFromInbox(caseId) {
   if (!caseId) {
     showToast(
-      'This conversation is not linked to a case.',
+      'This message is not linked to a case.',
       'warning'
     );
     return;
