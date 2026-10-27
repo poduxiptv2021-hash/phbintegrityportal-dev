@@ -935,7 +935,13 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
     </div>
     <div class="nav-links">
       <span style="font-size:12.5px;color:var(--text3);font-weight:500;">👤 Mohd Asyraf Aiman &nbsp;·&nbsp; Manager, IGU</span>
-      <button class="nav-link" onclick="showPage('pg-landing')">Exit Portal</button>
+      <button
+  type="button"
+  class="nav-link"
+  onclick="signOutIGUOfficer()"
+>
+  Exit Portal
+</button>
     </div>
   </nav>
 
@@ -1426,6 +1432,165 @@ function isAuthorizedIGUOfficer(account) {
   );
 }
 
+function showUnauthorizedIGUMessage(email) {
+  const loginPage =
+    document.getElementById('pg-login');
+
+  if (!loginPage) {
+    return;
+  }
+
+  document
+    .querySelectorAll('.page')
+    .forEach(function (page) {
+      page.classList.remove('active');
+    });
+
+  loginPage.classList.add('active');
+
+  let messageBox =
+    document.getElementById(
+      'igu-access-denied'
+    );
+
+  if (!messageBox) {
+    messageBox =
+      document.createElement('div');
+
+    messageBox.id =
+      'igu-access-denied';
+
+    messageBox.style.cssText = `
+      max-width:520px;
+      margin:20px auto;
+      padding:18px 20px;
+      border:1px solid #ef9a9a;
+      border-radius:10px;
+      background:#fff4f4;
+      color:#8a1f1f;
+      font-size:13.5px;
+      line-height:1.6;
+      text-align:left;
+    `;
+
+    const loginCard =
+      loginPage.querySelector(
+        '.login-card'
+      );
+
+    if (loginCard) {
+      loginCard.prepend(messageBox);
+    } else {
+      loginPage.prepend(messageBox);
+    }
+  }
+
+  messageBox.innerHTML = `
+    <div style="
+      font-size:16px;
+      font-weight:700;
+      margin-bottom:8px;
+    ">
+      Access Denied
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <strong>${escapeHtml(email)}</strong>
+      is not authorised to access the IGU Officer Portal.
+      Please use an approved IGU officer account.
+    </div>
+
+    <div style="
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    ">
+      <button
+        type="button"
+        class="btn-login"
+        onclick="switchIGUAccount()"
+        style="
+          width:auto;
+          padding:9px 14px;
+        "
+      >
+        Sign in with another account
+      </button>
+
+      <button
+        type="button"
+        onclick="returnToPublicPortal()"
+        style="
+          padding:9px 14px;
+          border:1px solid #d0d0d0;
+          border-radius:7px;
+          background:#fff;
+          color:#333;
+          font-weight:600;
+          cursor:pointer;
+        "
+      >
+        Return to Portal
+      </button>
+    </div>
+  `;
+
+  window.scrollTo(0, 0);
+}
+
+function removeUnauthorizedIGUMessage() {
+  const messageBox =
+    document.getElementById(
+      'igu-access-denied'
+    );
+
+  if (messageBox) {
+    messageBox.remove();
+  }
+}
+
+
+async function switchIGUAccount() {
+  try {
+    await msalReady;
+
+    const account =
+      msalInstance.getActiveAccount();
+
+    if (account) {
+      await msalInstance.clearCache({
+        account: account
+      });
+    }
+
+    msalInstance.setActiveAccount(null);
+    signedInOfficer = null;
+
+    removeUnauthorizedIGUMessage();
+
+    await msalInstance.loginRedirect({
+      scopes: MICROSOFT_LOGIN_SCOPES,
+      prompt: 'select_account'
+    });
+
+  } catch (error) {
+    console.error(
+      'Account switching failed:',
+      error
+    );
+
+    showToast(
+      'Unable to switch Microsoft account.',
+      'warning'
+    );
+  }
+}
+
+
+function returnToPublicPortal() {
+  showPage('pg-landing');
+}
+
 async function initialiseMicrosoftLogin() {
   try {
     await msalReady;
@@ -1455,30 +1620,24 @@ async function initialiseMicrosoftLogin() {
       msalInstance.getActiveAccount();
 
     if (
-      signedInOfficer &&
-      !isAuthorizedIGUOfficer(
-        signedInOfficer
-      )
-    ) {
-      const rejectedEmail =
-        signedInOfficer.username ||
-        'This Microsoft account';
+  signedInOfficer &&
+  !isAuthorizedIGUOfficer(
+    signedInOfficer
+  )
+) {
+  const rejectedEmail =
+    signedInOfficer.username ||
+    signedInOfficer
+      .idTokenClaims
+      ?.preferred_username ||
+    'This Microsoft account';
 
-      showToast(
-        rejectedEmail +
-        ' is not authorised for the IGU dashboard.',
-        'warning'
-      );
+  showUnauthorizedIGUMessage(
+    rejectedEmail
+  );
 
-      await msalInstance.logoutRedirect({
-        account: signedInOfficer,
-
-        postLogoutRedirectUri:
-          'https://poduxiptv2021-hash.github.io/phbintegrityportal-dev/'
-      });
-
-      return;
-    }
+  return;
+}
 
     updateOfficerLoginUI();
 
@@ -1516,11 +1675,14 @@ async function signInIGUOfficer() {
 
     if (
       existingAccount &&
-      isAuthorizedIGUOfficer(existingAccount)
+      isAuthorizedIGUOfficer(
+        existingAccount
+      )
     ) {
       signedInOfficer =
         existingAccount;
 
+      removeUnauthorizedIGUMessage();
       updateOfficerLoginUI();
       showPage('pg-dashboard');
 
@@ -1529,17 +1691,25 @@ async function signInIGUOfficer() {
 
     if (
       existingAccount &&
-      !isAuthorizedIGUOfficer(existingAccount)
+      !isAuthorizedIGUOfficer(
+        existingAccount
+      )
     ) {
-      await msalInstance.logoutRedirect({
-        account: existingAccount,
+      const rejectedEmail =
+        existingAccount.username ||
+        existingAccount
+          .idTokenClaims
+          ?.preferred_username ||
+        'This Microsoft account';
 
-        postLogoutRedirectUri:
-          'https://poduxiptv2021-hash.github.io/phbintegrityportal-dev/'
-      });
+      showUnauthorizedIGUMessage(
+        rejectedEmail
+      );
 
       return;
     }
+
+    removeUnauthorizedIGUMessage();
 
     await msalInstance.loginRedirect({
       scopes: MICROSOFT_LOGIN_SCOPES,
@@ -1553,7 +1723,9 @@ async function signInIGUOfficer() {
     );
 
     showToast(
-      getMicrosoftLoginErrorMessage(error),
+      getMicrosoftLoginErrorMessage(
+        error
+      ),
       'warning'
     );
   }
@@ -1630,26 +1802,37 @@ async function signOutIGUOfficer() {
     await msalReady;
 
     const account =
-      msalInstance.getActiveAccount() ||
-      msalInstance.getAllAccounts()[0];
+      msalInstance.getActiveAccount();
 
+    if (account) {
+      await msalInstance.clearCache({
+        account: account
+      });
+    }
+
+    msalInstance.setActiveAccount(null);
     signedInOfficer = null;
 
-    await msalInstance.logoutRedirect({
-      account: account,
-      postLogoutRedirectUri:
-        window.location.origin +
-        window.location.pathname
-    });
+    removeUnauthorizedIGUMessage();
+    resetOfficerLoginUI();
+
+    showPage('pg-landing');
+
+    showToast(
+      'You have exited the IGU Officer Portal.',
+      'success'
+    );
 
   } catch (error) {
     console.error(
-      'Microsoft sign-out failed:',
+      'Portal exit failed:',
       error
     );
 
+    msalInstance.setActiveAccount(null);
     signedInOfficer = null;
-    updateOfficerLoginUI();
+
+    resetOfficerLoginUI();
     showPage('pg-landing');
   }
 }
@@ -1713,6 +1896,17 @@ function updateOfficerLoginUI() {
     element.textContent =
       officerName;
   });
+}
+
+function resetOfficerLoginUI() {
+  document
+    .querySelectorAll(
+      '[data-officer-name]'
+    )
+    .forEach(function (element) {
+      element.textContent =
+        'IGU Officer';
+    });
 }
 
 // ══════════════════════════════════════════
