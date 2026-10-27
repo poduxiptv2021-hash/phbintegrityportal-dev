@@ -2963,36 +2963,333 @@ function renderOverviewActivity() {
 }
 
 function renderMessages() {
-  const el = document.getElementById('messages-list');
-  if (!el) return;
-  if (MESSAGES.length === 0) {
-    el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);"><div style="font-size:28px;margin-bottom:8px;">💬</div><div style="font-size:13px;font-weight:600;">No messages yet</div><div style="font-size:12px;margin-top:4px;">Reporter messages will appear here</div></div>';
+  const el =
+    document.getElementById('messages-list');
+
+  if (!el) {
     return;
   }
-  const newestMessages =
-    [...MESSAGES].sort(function (first, second) {
-      const firstTime =
-        new Date(first.sentOn || 0).getTime();
-      const secondTime =
-        new Date(second.sentOn || 0).getTime();
 
-      return secondTime - firstTime;
-    });
-
-  el.innerHTML = newestMessages.map(m => `
-    <div style="display:flex;align-items:flex-start;gap:12px;padding:12px;border-radius:9px;cursor:pointer;transition:.15s;background:${m.unread?'var(--off)':'#fff'};border:1px solid var(--border);" onclick="switchDashView('view-all');openCasePanel('${m.caseId}');m.unread=false;saveData();updateBadges();" onmouseover="this.style.background='var(--g6)'" onmouseout="this.style.background='${m.unread?'var(--off)':'#fff'}'">
-      <div style="width:36px;height:36px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">💬</div>
-      <div style="flex:1;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-          <span style="font-size:12.5px;font-weight:700;color:var(--text);">Case #${m.caseId} · ${m.from}</span>
-          ${m.unread ? '<span style="font-size:10px;background:var(--red);color:#fff;padding:2px 7px;border-radius:10px;font-weight:700;">NEW</span>' : ''}
+  if (MESSAGES.length === 0) {
+    el.innerHTML = `
+      <div style="
+        text-align:center;
+        padding:40px;
+        color:var(--text3);
+      ">
+        <div style="font-size:28px;margin-bottom:8px;">💬</div>
+        <div style="font-size:13px;font-weight:600;">No messages yet</div>
+        <div style="font-size:12px;margin-top:4px;">
+          Reporter messages will appear here
         </div>
-        <div style="font-size:13px;color:var(--text2);line-height:1.4;">"${m.msg}"</div>
-        <div style="font-size:11px;color:var(--text4);margin-top:3px;">${m.time}</div>
       </div>
-    </div>
-  `).join('');
+    `;
+    return;
+  }
+
+  const conversationsByCase = {};
+
+  MESSAGES.forEach(function (message) {
+    const groupKey =
+      String(
+        message.trackingCode ||
+        message.caseItemId ||
+        message.caseId ||
+        'unlinked'
+      );
+
+    if (!conversationsByCase[groupKey]) {
+      conversationsByCase[groupKey] = [];
+    }
+
+    conversationsByCase[groupKey].push(message);
+  });
+
+  const conversations =
+    Object.entries(conversationsByCase)
+      .map(function (entry) {
+        const messages = entry[1]
+          .slice()
+          .sort(function (first, second) {
+            return (
+              new Date(first.sentOn || 0).getTime() -
+              new Date(second.sentOn || 0).getTime()
+            );
+          });
+
+        const latestMessage =
+          messages[messages.length - 1];
+
+        const caseRecord =
+          CASES.find(function (item) {
+            const sameTrackingCode =
+              latestMessage.trackingCode &&
+              item.code &&
+              latestMessage.trackingCode
+                .toUpperCase() ===
+              item.code.toUpperCase();
+
+            const sameItemId =
+              latestMessage.caseItemId != null &&
+              item.itemId != null &&
+              String(latestMessage.caseItemId) ===
+              String(item.itemId);
+
+            const sameDashboardId =
+              String(latestMessage.caseId || '') ===
+              String(item.id || '');
+
+            return (
+              sameTrackingCode ||
+              sameItemId ||
+              sameDashboardId
+            );
+          });
+
+        return {
+          key: entry[0],
+          messages: messages,
+          latestMessage: latestMessage,
+          latestTime:
+            new Date(
+              latestMessage.sentOn || 0
+            ).getTime(),
+          caseRecord: caseRecord
+        };
+      })
+      .sort(function (first, second) {
+        return second.latestTime - first.latestTime;
+      });
+
+  el.innerHTML = conversations
+    .map(function (conversation) {
+      const caseRecord =
+        conversation.caseRecord;
+
+      const trackingCode =
+        caseRecord?.code ||
+        conversation.latestMessage.trackingCode ||
+        ('Case #' +
+          (conversation.latestMessage.caseId || 'Unknown'));
+
+      const caseTitle =
+        caseRecord?.title ||
+        'Integrity Case Conversation';
+
+      const dashboardCaseId =
+        caseRecord?.id ||
+        conversation.latestMessage.caseId ||
+        '';
+
+      const unreadCount =
+        conversation.messages.filter(
+          function (message) {
+            return message.unread;
+          }
+        ).length;
+
+      const latestDisplayTime =
+        conversation.latestMessage.time ||
+        formatDashboardDateTime(
+          parsePortalDate(
+            conversation.latestMessage.sentOn
+          )
+        );
+
+      const bubbleHtml =
+        conversation.messages
+          .map(function (message) {
+            const isIGU =
+              String(
+                message.senderType ||
+                message.from ||
+                ''
+              )
+                .trim()
+                .toLowerCase() === 'igu';
+
+            const senderLabel =
+              isIGU
+                ? (
+                    message.senderName ||
+                    message.from ||
+                    'IGU Officer'
+                  )
+                : 'Reporter';
+
+            const messageText =
+              message.messageText ||
+              message.msg ||
+              '';
+
+            const timeLabel =
+              message.time ||
+              formatDashboardDateTime(
+                parsePortalDate(message.sentOn)
+              );
+
+            return `
+              <div style="
+                display:flex;
+                justify-content:${isIGU ? 'flex-end' : 'flex-start'};
+                margin:8px 0;
+              ">
+                <div style="
+                  width:fit-content;
+                  max-width:min(76%,720px);
+                  padding:11px 14px;
+                  border-radius:${isIGU ? '14px 14px 4px 14px' : '14px 14px 14px 4px'};
+                  background:${isIGU ? 'var(--navy)' : '#E8F5FF'};
+                  color:${isIGU ? '#fff' : 'var(--text)'};
+                  box-shadow:0 2px 8px rgba(0,30,60,.07);
+                ">
+                  <div style="
+                    display:flex;
+                    align-items:center;
+                    gap:7px;
+                    margin-bottom:5px;
+                    font-size:11.5px;
+                    font-weight:700;
+                    color:${isIGU ? 'rgba(255,255,255,.72)' : 'var(--text3)'};
+                  ">
+                    <span>${escapeHtml(senderLabel)}</span>
+                    ${message.unread && !isIGU
+                      ? '<span style="background:var(--red);color:#fff;padding:1px 6px;border-radius:10px;font-size:9px;">NEW</span>'
+                      : ''}
+                  </div>
+
+                  <div style="
+                    font-size:13.5px;
+                    line-height:1.5;
+                    overflow-wrap:anywhere;
+                  ">
+                    ${formatChatMessageText(messageText)}
+                  </div>
+
+                  <div style="
+                    margin-top:6px;
+                    text-align:right;
+                    font-size:10.5px;
+                    color:${isIGU ? 'rgba(255,255,255,.65)' : 'var(--text4)'};
+                  ">
+                    ${escapeHtml(timeLabel)}
+                  </div>
+                </div>
+              </div>
+            `;
+          })
+          .join('');
+
+      return `
+        <section style="
+          border:1px solid var(--border);
+          border-radius:14px;
+          background:#fff;
+          overflow:hidden;
+          box-shadow:0 3px 12px rgba(0,35,65,.05);
+        ">
+          <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:flex-start;
+            gap:14px;
+            padding:14px 16px;
+            border-bottom:1px solid var(--border);
+            background:var(--off);
+          ">
+            <div style="min-width:0;">
+              <div style="
+                display:flex;
+                flex-wrap:wrap;
+                align-items:center;
+                gap:8px;
+              ">
+                <strong style="
+                  font-size:13.5px;
+                  color:var(--text);
+                  overflow-wrap:anywhere;
+                ">
+                  ${escapeHtml(trackingCode)}
+                </strong>
+
+                ${unreadCount > 0
+                  ? `<span style="font-size:10px;background:var(--red);color:#fff;padding:2px 7px;border-radius:10px;font-weight:700;">${unreadCount} NEW</span>`
+                  : ''}
+              </div>
+
+              <div style="
+                margin-top:3px;
+                font-size:12px;
+                color:var(--text3);
+              ">
+                ${escapeHtml(caseTitle)}
+              </div>
+            </div>
+
+            <div style="
+              flex-shrink:0;
+              text-align:right;
+              font-size:10.5px;
+              color:var(--text4);
+            ">
+              Latest activity<br>
+              <strong style="color:var(--text3);">
+                ${escapeHtml(latestDisplayTime)}
+              </strong>
+            </div>
+          </div>
+
+          <div style="
+            padding:12px 16px;
+            background:linear-gradient(180deg,#F8FFFD 0%,#F2FBF9 100%);
+          ">
+            ${bubbleHtml}
+          </div>
+
+          <div style="
+            display:flex;
+            justify-content:flex-end;
+            padding:10px 16px 14px;
+            background:#fff;
+          ">
+            <button
+              type="button"
+              class="btn-sm primary"
+              onclick="openMessageConversation('${escapeHtml(String(dashboardCaseId))}')"
+              ${dashboardCaseId ? '' : 'disabled'}
+            >
+              Open Conversation →
+            </button>
+          </div>
+        </section>
+      `;
+    })
+    .join('');
 }
+
+function openMessageConversation(caseId) {
+  if (!caseId) {
+    showToast(
+      'This conversation is not linked to a case.',
+      'warning'
+    );
+    return;
+  }
+
+  MESSAGES.forEach(function (message) {
+    if (
+      String(message.caseId || '') ===
+      String(caseId)
+    ) {
+      message.unread = false;
+    }
+  });
+
+  updateBadges();
+  switchDashView('view-all');
+  openCasePanel(String(caseId));
+}
+
 function renderAuditLog() {
   const el = document.getElementById('audit-log-list');
   if (!el) return;
