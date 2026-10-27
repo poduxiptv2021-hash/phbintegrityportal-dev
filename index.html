@@ -985,7 +985,14 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
         <div class="dash-topbar">
           <div><div class="dash-title">Dashboard Overview</div><div class="dash-sub">Monday, 11 May 2025 · FY2025 Q2</div></div>
           <div class="dash-acts">
-            <button class="btn-sm outline" onclick="showToast('Generating report...','success')">📤 Export Report</button>
+            <button
+  type="button"
+  class="btn-sm outline"
+  onclick="loadIGUDashboardData()"
+>
+  🔄 Refresh
+</button>
+			<button class="btn-sm outline" onclick="showToast('Generating report...','success')">📤 Export Report</button>
             <button class="btn-sm primary" onclick="openModal('modal-new-case')">+ New Case</button>
           </div>
         </div>
@@ -1344,6 +1351,9 @@ const POWER_AUTOMATE_SEND_MESSAGE_URL =
 const POWER_AUTOMATE_IGU_MESSAGE_URL =
   'https://defaultcc9afa7759004c388262c226c4c2e2.7d.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/03/workflows/c8f77bff53944f9686df39c3ea258298/triggers/manual/paths/invoke?api-version=1';
 
+const POWER_AUTOMATE_IGU_CASES_URL =
+  'https://defaultcc9afa7759004c388262c226c4c2e2.7d.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/18/workflows/8bd3a20712a54b4493b9308dae3411ee/triggers/manual/paths/invoke?api-version=1';
+
 const PORTAL_KEY =
   "PHB-IP-PILOT-2026";
 
@@ -1641,17 +1651,19 @@ async function initialiseMicrosoftLogin() {
 
     updateOfficerLoginUI();
 
-    if (
-      redirectResult?.account &&
-      signedInOfficer
-    ) {
-      showPage('pg-dashboard');
+if (
+  redirectResult?.account &&
+  signedInOfficer
+) {
+  showPage('pg-dashboard');
 
-      showToast(
-        'Microsoft sign-in successful.',
-        'success'
-      );
-    }
+  showToast(
+    'Microsoft sign-in successful.',
+    'success'
+  );
+
+  await loadIGUDashboardData();
+}
 
   } catch (error) {
     console.error(
@@ -1673,21 +1685,23 @@ async function signInIGUOfficer() {
     const existingAccount =
       msalInstance.getActiveAccount();
 
-    if (
-      existingAccount &&
-      isAuthorizedIGUOfficer(
-        existingAccount
-      )
-    ) {
-      signedInOfficer =
-        existingAccount;
+if (
+  existingAccount &&
+  isAuthorizedIGUOfficer(
+    existingAccount
+  )
+) {
+  signedInOfficer =
+    existingAccount;
 
-      removeUnauthorizedIGUMessage();
-      updateOfficerLoginUI();
-      showPage('pg-dashboard');
+  removeUnauthorizedIGUMessage();
+  updateOfficerLoginUI();
+  showPage('pg-dashboard');
 
-      return;
-    }
+  await loadIGUDashboardData();
+
+  return;
+}
 
     if (
       existingAccount &&
@@ -1909,6 +1923,675 @@ function resetOfficerLoginUI() {
     });
 }
 
+async function loadIGUDashboardData() {
+  const account =
+    msalInstance.getActiveAccount();
+
+  if (
+    !account ||
+    !isAuthorizedIGUOfficer(account)
+  ) {
+    showToast(
+      'IGU officer authorisation is required.',
+      'warning'
+    );
+
+    return false;
+  }
+
+  setIGUDashboardLoading(true);
+
+  try {
+    const accessToken =
+      await getPowerAutomateAccessToken();
+
+    if (!accessToken) {
+      return false;
+    }
+
+    const response = await fetch(
+      POWER_AUTOMATE_IGU_CASES_URL,
+      {
+        method: 'POST',
+
+        headers: {
+          'Authorization':
+            'Bearer ' + accessToken,
+
+          'Content-Type':
+            'application/json'
+        },
+
+        body: JSON.stringify({
+          status: null,
+          searchText: null,
+          topCount: 500
+        })
+      }
+    );
+
+    const responseText =
+      await response.text();
+
+    let result;
+
+    try {
+      result =
+        JSON.parse(responseText);
+
+    } catch (parseError) {
+      console.error(
+        'IGU dashboard flow response:',
+        responseText
+      );
+
+      throw new Error(
+        'The dashboard service returned an invalid response.'
+      );
+    }
+
+    if (
+      !response.ok ||
+      !result.success
+    ) {
+      throw new Error(
+        result.message ||
+        'The IGU dashboard data could not be loaded.'
+      );
+    }
+
+    const sourceCases =
+      Array.isArray(result.cases)
+        ? result.cases
+        : [];
+
+    const sourceMessages =
+      Array.isArray(result.messages)
+        ? result.messages
+        : [];
+
+    CASES =
+      sourceCases.map(
+        mapSharePointCaseToDashboard
+      );
+
+    MESSAGES =
+      sourceMessages.map(
+        mapSharePointMessageToDashboard
+      );
+
+    attachMessagesToCases();
+
+    renderAll();
+
+    showToast(
+      CASES.length +
+      ' case' +
+      (CASES.length === 1 ? '' : 's') +
+      ' loaded from SharePoint.',
+      'success'
+    );
+
+    return true;
+
+  } catch (error) {
+    console.error(
+      'IGU dashboard loading failed:',
+      error
+    );
+
+    showToast(
+      error.message ||
+      'The IGU dashboard could not be loaded.',
+      'warning'
+    );
+
+    return false;
+
+  } finally {
+    setIGUDashboardLoading(false);
+  }
+}
+
+function mapSharePointCaseToDashboard(
+  source
+) {
+  const severity =
+    String(
+      source.severity || ''
+    )
+      .trim()
+      .toLowerCase();
+
+  const priorityMap = {
+    critical: 'crit',
+    high: 'high',
+    medium: 'med',
+    low: 'low'
+  };
+
+  const assignedOfficer =
+    source.assignedOfficer ||
+    'Unassigned';
+
+  const officerInitials =
+    assignedOfficer === 'Unassigned'
+      ? 'UA'
+      : assignedOfficer
+          .split(' ')
+          .filter(function (word) {
+            return word.length > 0;
+          })
+          .map(function (word) {
+            return word[0];
+          })
+          .join('')
+          .substring(0, 2)
+          .toUpperCase();
+
+  const submittedDate =
+    parsePortalDate(
+      source.submittedOn
+    );
+
+  const incidentDate =
+    parsePortalDate(
+      source.incidentDate
+    );
+
+  const status =
+    source.status ||
+    'Received';
+
+  const daysOpen =
+    calculateCaseDaysOpen(
+      submittedDate,
+      status
+    );
+
+  return {
+    id:
+      String(
+        source.itemId ??
+        source.trackingCode ??
+        ''
+      ),
+
+    itemId:
+      source.itemId ?? null,
+
+    code:
+      source.trackingCode ||
+      '',
+
+    title:
+      source.title ||
+      'Untitled Integrity Report',
+
+    cat:
+      source.category ||
+      'Other Integrity Concern',
+
+    category:
+      source.category ||
+      'Other Integrity Concern',
+
+    priority:
+      priorityMap[severity] ||
+      'med',
+
+    severity:
+      source.severity ||
+      'Medium',
+
+    status:
+      status,
+
+    assigned:
+      assignedOfficer,
+
+    assignedEmail:
+      source.assignedOfficerEmail ||
+      '',
+
+    av:
+      officerInitials,
+
+    avc:
+      assignedOfficer === 'Unassigned'
+        ? 'var(--text4)'
+        : 'var(--g2)',
+
+    days:
+      daysOpen,
+
+    desc:
+      source.description ||
+      'No description provided.',
+
+    dept:
+      source.department ||
+      'Not specified',
+
+    persons:
+      source.personsInvolved ||
+      'Not disclosed',
+
+    priorReporting:
+      source.priorReporting ||
+      'Not specified',
+
+    date:
+      formatDashboardDate(
+        incidentDate
+      ),
+
+    submittedAt:
+      formatDashboardDateTime(
+        submittedDate
+      ),
+
+    submittedRaw:
+      source.submittedOn ||
+      null,
+
+    modifiedRaw:
+      source.modifiedOn ||
+      null,
+
+    anonymous:
+      normaliseBoolean(
+        source.isAnonymous
+      ),
+
+    reporterName:
+      source.reporterName ||
+      '',
+
+    reporterEmail:
+      source.reporterEmail ||
+      '',
+
+    reporterPhone:
+      source.reporterPhone ||
+      '',
+
+    preferredContact:
+      source.preferredContact ||
+      '',
+
+    evidenceNotes:
+      source.evidenceNotes ||
+      '',
+
+    files:
+      0,
+
+    thread:
+      []
+  };
+}
+
+function mapSharePointMessageToDashboard(
+  source
+) {
+  const senderType =
+    String(
+      source.senderType || ''
+    ).trim();
+
+  const isReporter =
+    senderType.toLowerCase() ===
+    'reporter';
+
+  return {
+    id:
+      String(
+        source.messageId ?? ''
+      ),
+
+    messageId:
+      source.messageId ?? null,
+
+    caseId:
+      String(
+        source.caseItemId ?? ''
+      ),
+
+    caseItemId:
+      source.caseItemId ?? null,
+
+    trackingCode:
+      source.trackingCode ||
+      '',
+
+    from:
+      isReporter
+        ? (
+            source.senderName ||
+            'Anonymous Reporter'
+          )
+        : (
+            source.senderName ||
+            'IGU Officer'
+          ),
+
+    senderType:
+      senderType,
+
+    senderName:
+      source.senderName ||
+      '',
+
+    msg:
+      source.messageText ||
+      '',
+
+    messageText:
+      source.messageText ||
+      '',
+
+    time:
+      formatDashboardDateTime(
+        parsePortalDate(
+          source.sentOn
+        )
+      ),
+
+    sentOn:
+      source.sentOn ||
+      null,
+
+    unread:
+      isReporter &&
+      !normaliseBoolean(
+        source.isRead
+      ),
+
+    isRead:
+      normaliseBoolean(
+        source.isRead
+      ),
+
+    visibleToReporter:
+      normaliseBoolean(
+        source.visibleToReporter
+      ),
+
+    status:
+      source.status ||
+      'Sent',
+
+    officerUPN:
+      source.officerUPN ||
+      '',
+
+    clientMessageId:
+      source.clientMessageId ||
+      ''
+  };
+}
+
+function attachMessagesToCases() {
+  CASES.forEach(function (caseRecord) {
+    caseRecord.thread =
+      MESSAGES
+        .filter(function (message) {
+          const sameTrackingCode =
+            message.trackingCode &&
+            caseRecord.code &&
+            message.trackingCode
+              .toUpperCase() ===
+            caseRecord.code
+              .toUpperCase();
+
+          const sameCaseItemId =
+            message.caseItemId != null &&
+            caseRecord.itemId != null &&
+            String(message.caseItemId) ===
+            String(caseRecord.itemId);
+
+          return (
+            sameTrackingCode ||
+            sameCaseItemId
+          );
+        })
+        .sort(function (first, second) {
+          const firstTime =
+            new Date(
+              first.sentOn || 0
+            ).getTime();
+
+          const secondTime =
+            new Date(
+              second.sentOn || 0
+            ).getTime();
+
+          return firstTime - secondTime;
+        })
+        .map(function (message) {
+          return {
+            from:
+              message.senderType ===
+              'Reporter'
+                ? 'Reporter'
+                : 'IGU',
+
+            senderName:
+              message.senderName,
+
+            msg:
+              message.messageText,
+
+            text:
+              message.messageText,
+
+            time:
+              message.time,
+
+            sentOn:
+              message.sentOn,
+
+            unread:
+              message.unread,
+
+            messageId:
+              message.messageId,
+
+            visibleToReporter:
+              message.visibleToReporter
+          };
+        });
+  });
+}
+
+function normaliseBoolean(value) {
+  if (value === true) {
+    return true;
+  }
+
+  if (value === false) {
+    return false;
+  }
+
+  const normalisedValue =
+    String(value)
+      .trim()
+      .toLowerCase();
+
+  return (
+    normalisedValue === 'true' ||
+    normalisedValue === 'yes' ||
+    normalisedValue === '1'
+  );
+}
+
+
+function parsePortalDate(value) {
+  if (!value) {
+    return null;
+  }
+
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(date.getTime())
+  ) {
+    return null;
+  }
+
+  return date;
+}
+
+
+function formatDashboardDate(date) {
+  if (!date) {
+    return 'Not specified';
+  }
+
+  return date.toLocaleDateString(
+    'en-MY',
+    {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    }
+  );
+}
+
+
+function formatDashboardDateTime(date) {
+  if (!date) {
+    return 'Not available';
+  }
+
+  return date.toLocaleString(
+    'en-MY',
+    {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }
+  );
+}
+
+
+function calculateCaseDaysOpen(
+  submittedDate,
+  status
+) {
+  if (!submittedDate) {
+    return 0;
+  }
+
+  if (
+    String(status)
+      .toLowerCase() ===
+    'closed'
+  ) {
+    return 0;
+  }
+
+  const millisecondsPerDay =
+    1000 * 60 * 60 * 24;
+
+  const difference =
+    Date.now() -
+    submittedDate.getTime();
+
+  return Math.max(
+    0,
+    Math.floor(
+      difference /
+      millisecondsPerDay
+    )
+  );
+}
+
+function setIGUDashboardLoading(
+  isLoading
+) {
+  const dashboard =
+    document.getElementById(
+      'pg-dashboard'
+    );
+
+  if (!dashboard) {
+    return;
+  }
+
+  let overlay =
+    document.getElementById(
+      'igu-dashboard-loading'
+    );
+
+  if (isLoading) {
+    if (!overlay) {
+      overlay =
+        document.createElement('div');
+
+      overlay.id =
+        'igu-dashboard-loading';
+
+      overlay.style.cssText = `
+        position:fixed;
+        inset:0;
+        z-index:2000;
+        background:rgba(255,255,255,.88);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:20px;
+      `;
+
+      overlay.innerHTML = `
+        <div style="
+          background:#fff;
+          border:1px solid var(--border);
+          border-radius:12px;
+          padding:24px 30px;
+          box-shadow:var(--sh2);
+          text-align:center;
+          max-width:360px;
+        ">
+          <div style="
+            font-size:28px;
+            margin-bottom:10px;
+          ">
+            ⏳
+          </div>
+
+          <div style="
+            font-size:15px;
+            font-weight:700;
+            color:var(--text);
+            margin-bottom:5px;
+          ">
+            Loading IGU Dashboard
+          </div>
+
+          <div style="
+            font-size:12.5px;
+            color:var(--text3);
+          ">
+            Retrieving cases and messages from SharePoint...
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(
+        overlay
+      );
+    }
+
+  } else if (overlay) {
+    overlay.remove();
+  }
+}
+
 // ══════════════════════════════════════════
 //  DATA
 // ══════════════════════════════════════════
@@ -1976,9 +2659,12 @@ function showPage(id) {
 
   window.scrollTo(0, 0);
 
-  if (id === 'pg-dashboard') {
-    renderAll();
-  }
+if (
+  id === 'pg-dashboard' &&
+  CASES.length > 0
+) {
+  renderAll();
+}
 }
 
 // ══════════════════════════════════════════
