@@ -562,10 +562,6 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 </div></div>
 </div>
 </div>
-
-
-
-
 <footer class="footer">
 <div class="footer-left">© 2025 Pelaburan Hartanah Berhad · Integrity &amp; Governance Unit (IGU) · All reports are confidential · wb@phb.com.my · +603-7713091</div>
 <div class="footer-right">
@@ -622,15 +618,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 <label class="cat-opt" onclick="selectCat(this)"><input name="cat" type="radio"/><span class="cat-em">📋</span><div><div class="cat-name">Other / General Integrity</div><div class="cat-sub">Other breach not listed above</div></div></label>
 </div>
 </div>
-<div class="form-group">
-<label class="form-label">Severity Level <span class="req">*</span></label>
-<div class="sev-row">
-<div class="sev-btn low" onclick="selectSev(this)"><div class="sev-dot"></div><div class="sev-label">Low</div></div>
-<div class="sev-btn med" onclick="selectSev(this)"><div class="sev-dot"></div><div class="sev-label">Medium</div></div>
-<div class="sev-btn high" onclick="selectSev(this)"><div class="sev-dot"></div><div class="sev-label">High</div></div>
-<div class="sev-btn crit" onclick="selectSev(this)"><div class="sev-dot"></div><div class="sev-label">Critical</div></div>
-</div>
-</div>
+
 <div class="form-nav"><div></div><button class="btn-f btn-next" onclick="goStep(2)">Next: Incident Details →</button></div>
 </div>
 <!-- STEP 2 -->
@@ -876,9 +864,6 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 <div class="login-title">IGU Officer Access</div>
 <div class="login-sub">Integrity &amp; Governance Unit · PHB<br/>Authorised personnel only</div>
 </div>
-
-
-
 <div class="microsoft-login-note">
 <div class="microsoft-login-icon">M</div>
 <div>
@@ -888,9 +873,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 </div><button class="btn-login" onclick="signInIGUOfficer()" type="button">
   Sign in with Microsoft
 </button>
-
 <div style="text-align:center;margin-top:16px;"><button onclick="showPage('pg-landing')" style="background:none;border:none;font-size:12.5px;color:var(--text3);cursor:pointer;">← Back to Portal</button></div>
-
 </div>
 </div>
 </div>
@@ -964,7 +947,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 <div class="dash-card">
 <div class="dc-header"><div class="dc-title">Recent Cases</div><button class="dc-link" onclick="switchDashView('view-all')">View all →</button></div>
 <table class="case-tbl">
-<thead><tr><th>ID</th><th>Report</th><th>Priority</th><th>Status</th><th>Assigned</th></tr></thead>
+<thead><tr><th>ID</th><th>Report</th><th>Severity</th><th>Status</th><th>Assigned</th></tr></thead>
 <tbody id="overview-table"></tbody>
 </table>
 </div>
@@ -1010,7 +993,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 </div>
 <div class="dash-card">
 <table class="case-tbl">
-<thead><tr><th>ID</th><th>Report</th><th>Category</th><th>Priority</th><th>Status</th><th>Assigned</th><th>Days Open</th></tr></thead>
+<thead><tr><th>ID</th><th>Report</th><th>Severity</th><th>Status</th><th>Assigned</th><th>Days Open</th></tr></thead>
 <tbody id="all-cases-table"></tbody>
 </table>
 </div>
@@ -1027,7 +1010,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 </div>
 <div class="dash-card">
 <table class="case-tbl">
-<thead><tr><th>ID</th><th>Report</th><th>Priority</th><th>Status</th><th>SLA Deadline</th><th>Action</th></tr></thead>
+<thead><tr><th>ID</th><th>Report</th><th>Severity</th><th>Status</th><th>SLA Deadline</th><th>Action</th></tr></thead>
 <tbody id="priority-table"></tbody>
 </table>
 </div>
@@ -1039,7 +1022,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 </div>
 <div class="dash-card">
 <table class="case-tbl">
-<thead><tr><th>ID</th><th>Report</th><th>Priority</th><th>Status</th><th>Assigned</th></tr></thead>
+<thead><tr><th>ID</th><th>Report</th><th>Severity</th><th>Status</th><th>Assigned</th></tr></thead>
 <tbody id="filtered-cases-table"></tbody>
 </table>
 </div>
@@ -1144,7 +1127,13 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 <div class="panel-body">
 <div class="panel-meta" id="panel-meta"></div>
 <div class="panel-actions">
-<select class="status-select" id="panel-status-select" onchange="updateCaseStatus(this.value)">
+<select aria-label="Assign case severity" class="status-select" id="panel-severity-select">
+<option value="Not Assigned">Severity: Not Assigned</option>
+<option value="Low">Severity: Low</option>
+<option value="Medium">Severity: Medium</option>
+<option value="High">Severity: High</option>
+<option value="Critical">Severity: Critical</option>
+</select><select class="status-select" id="panel-status-select" onchange="updateCaseStatus(this.value)">
 <option value="Under Review">Under Review</option>
 <option value="Investigation">Investigation</option>
 <option value="Resolved">Resolved</option>
@@ -1982,12 +1971,13 @@ function mapSharePointCaseToDashboard(
 ) {
   const severity =
     String(
-      source.severity || ''
+      source.severity || 'Not Assigned'
     )
       .trim()
       .toLowerCase();
 
   const priorityMap = {
+    'not assigned': 'unassigned',
     critical: 'crit',
     high: 'high',
     medium: 'med',
@@ -1996,10 +1986,10 @@ function mapSharePointCaseToDashboard(
 
   const assignedOfficer =
     source.assignedOfficer ||
-    'Unassigned';
+    'Not Assigned';
 
   const officerInitials =
-    assignedOfficer === 'Unassigned'
+    assignedOfficer === 'Not Assigned'
       ? 'UA'
       : assignedOfficer
           .split(' ')
@@ -2066,7 +2056,7 @@ function mapSharePointCaseToDashboard(
 
     severity:
       source.severity ||
-      'Medium',
+      'Not Assigned',
 
     status:
       status,
@@ -2082,7 +2072,7 @@ function mapSharePointCaseToDashboard(
       officerInitials,
 
     avc:
-      assignedOfficer === 'Unassigned'
+      assignedOfficer === 'Not Assigned'
         ? 'var(--text4)'
         : 'var(--g2)',
 
@@ -2780,6 +2770,7 @@ function updateBadges() {
 }
 
 function priorityLabel(p) {
+  if (p === 'unassigned') return ['Not Assigned','var(--text4)'];
   const map = {crit:['Critical','var(--red)'],high:['High','var(--orange)'],med:['Medium','#9A6800'],low:['Low','var(--g3)']};
   return map[p] || ['Unknown','#999'];
 }
@@ -2788,7 +2779,11 @@ function statusBadge(s) {
   return `<span class="status-badge ${map[s]||''}" style="font-size:11px;">${s}</span>`;
 }
 function caseRow(c, extra='') {
-  const [plabel,pcolor] = priorityLabel(c.priority);
+  const severityValue = c.severity || 'Not Assigned';
+  const severityKey = severityValue.toLowerCase() === 'not assigned'
+    ? 'unassigned'
+    : (c.priority || severityValue.toLowerCase());
+  const [plabel,pcolor] = priorityLabel(severityKey);
   const displayId = c.code || ('PHB-' + new Date().getFullYear() + '-' + c.id);
   return `<tr onclick="openCasePanel('${c.id}')">
     <td class="td-id" style="font-size:10.5px;">${displayId}</td>
@@ -2827,7 +2822,7 @@ function renderAllCases(filter='All', search='') {
   let filtered = CASES;
   if (filter !== 'All') filtered = filtered.filter(c => c.status === filter);
   if (search) filtered = filtered.filter(c => c.title.toLowerCase().includes(search.toLowerCase()) || c.id.includes(search) || c.cat.toLowerCase().includes(search.toLowerCase()));
-  el.innerHTML = filtered.map(c => caseRow(c,'days')).join('') || '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text3);">No cases found.</td></tr>';
+  el.innerHTML = filtered.map(c => caseRow(c,'days')).join('') || '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3);">No cases found.</td></tr>';
 }
 function renderFilteredCases(cases) {
   const el = document.getElementById('filtered-cases-table');
@@ -3136,6 +3131,7 @@ function openCasePanel(caseId) {
     <div class="panel-info-item"><div class="pii-label">Assigned To</div><div class="pii-val">${c.assigned}</div></div>
     <div class="panel-info-item"><div class="pii-label">Submission</div><div class="pii-val">${c.anonymous ? '🎭 Anonymous' : '👤 Identified'}</div></div>
   `;
+  document.getElementById('panel-severity-select').value = c.severity || 'Not Assigned';
   document.getElementById('panel-status-select').value = c.status;
   document.getElementById('panel-assign-select').value = c.assigned;
   // Render actual thread from case data
@@ -3199,16 +3195,25 @@ function closeCasePanel(e) {
 function updateCaseStatus(val) { /* preview only — save on Save button */ }
 function saveCaseUpdates() {
   const caseId = window._panelCaseId;
+  const newSeverity = document.getElementById('panel-severity-select').value;
   const newStatus = document.getElementById('panel-status-select').value;
   const newAssign = document.getElementById('panel-assign-select').value;
   const c = CASES.find(x => x.id === caseId);
   if (c) {
     const oldStatus = c.status;
+    const oldSeverity = c.severity || 'Not Assigned';
+    c.severity = newSeverity;
+    c.priority = newSeverity === 'Not Assigned'
+      ? 'unassigned'
+      : ({Low:'low',Medium:'med',High:'high',Critical:'crit'}[newSeverity] || 'unassigned');
     c.status = newStatus;
     if (newAssign && newAssign !== 'Assign to...') {
       c.assigned = newAssign;
       const initials = newAssign.split(' ').filter(w=>w.length>1&&!/[()]/g.test(w)).map(w=>w[0]).join('').substring(0,2).toUpperCase();
       c.av = initials; c.avc = 'var(--g2)';
+    }
+    if (oldSeverity !== newSeverity) {
+      addAuditEntry('⚡', 'var(--gold-pale)', 'Case #' + c.id + ' severity → ' + newSeverity, 'Updated by IGU Officer');
     }
     if (oldStatus !== newStatus) {
       // Push system message to thread so reporter sees status change
@@ -3520,10 +3525,10 @@ document.addEventListener('keydown', e => {
 // ══════════════════════════════════════════
 //  REPORT FORM
 // ══════════════════════════════════════════
-let reportData = { category:'', severity:'', title:'', desc:'', date:'', dept:'', persons:'', files:[] };
+let reportData = { category:'', severity:'Not Assigned', title:'', desc:'', date:'', dept:'', persons:'', files:[] };
 
 function resetReport() {
-  reportData = { category:'', severity:'', title:'', desc:'', date:'', dept:'', persons:'', files:[] };
+  reportData = { category:'', severity:'Not Assigned', title:'', desc:'', date:'', dept:'', persons:'', files:[] };
   document.querySelectorAll('.cat-opt').forEach(c => c.classList.remove('selected'));
   document.querySelectorAll('.sev-btn').forEach(b => b.classList.remove('sel'));
   document.querySelectorAll('#pg-report .form-input').forEach(i => { if(i.tagName!=='SELECT') i.value=''; else i.selectedIndex=0; });
@@ -3580,13 +3585,11 @@ function buildReviewSummary() {
   const title = document.getElementById('r-title').value || '(not provided)';
   const desc = document.getElementById('r-desc').value || '(not provided)';
   const dept = document.getElementById('r-dept').value || 'Not specified';
-  const sev = document.querySelector('.sev-btn.sel .sev-label')?.textContent || 'Not selected';
   const cat = document.querySelector('.cat-opt.selected .cat-name')?.textContent || 'Not selected';
   const sevColor = {'Low':'var(--g2)','Medium':'#9A6800','High':'var(--orange)','Critical':'var(--red)'}[sev] || 'var(--text)';
   document.getElementById('review-summary').innerHTML = `
     <div style="display:flex;flex-direction:column;gap:12px;">
       <div style="display:flex;gap:10px;"><span style="font-size:11.5px;font-weight:700;color:var(--text3);width:110px;flex-shrink:0;padding-top:2px;">Category</span><span style="font-size:13.5px;font-weight:600;color:var(--text);">${cat}</span></div>
-      <div style="display:flex;gap:10px;"><span style="font-size:11.5px;font-weight:700;color:var(--text3);width:110px;flex-shrink:0;padding-top:2px;">Severity</span><span style="font-size:12.5px;font-weight:700;color:${sevColor};background:var(--off);padding:2px 10px;border-radius:6px;">${sev}</span></div>
       <div style="display:flex;gap:10px;"><span style="font-size:11.5px;font-weight:700;color:var(--text3);width:110px;flex-shrink:0;padding-top:2px;">Title</span><span style="font-size:13.5px;color:var(--text2);">${title}</span></div>
       <div style="display:flex;gap:10px;"><span style="font-size:11.5px;font-weight:700;color:var(--text3);width:110px;flex-shrink:0;padding-top:2px;">Department</span><span style="font-size:13.5px;color:var(--text2);">${dept}</span></div>
       <div style="display:flex;gap:10px;"><span style="font-size:11.5px;font-weight:700;color:var(--text3);width:110px;flex-shrink:0;padding-top:2px;">Attachments</span><span style="font-size:13.5px;color:var(--text2);">${reportData.files.length > 0 ? reportData.files.length + ' file(s) attached' : 'None'}</span></div>
@@ -3611,10 +3614,7 @@ async function submitReport() {
       '.cat-opt.selected .cat-name'
     )?.textContent?.trim() || '';
 
-  const severity =
-    document.querySelector(
-      '.sev-btn.sel .sev-label'
-    )?.textContent?.trim() || '';
+  const severity = 'Not Assigned';
 
   const title =
     document.getElementById('r-title').value.trim();
@@ -3642,14 +3642,6 @@ async function submitReport() {
   if (!category) {
     showToast(
       'Please select a report category.',
-      'warning'
-    );
-    return;
-  }
-
-  if (!severity) {
-    showToast(
-      'Please select a severity.',
       'warning'
     );
     return;
@@ -3794,7 +3786,7 @@ function createManualCase() {
   const titleEl = inputs[0]?.value?.trim();
   if (!titleEl) { showToast('Please enter a case title.','warning'); return; }
   const priority = selects[1]?.value?.toLowerCase() || 'high';
-  const assignTo = selects[2]?.value || 'Unassigned';
+  const assignTo = selects[2]?.value || 'Not Assigned';
   const desc = textareas[0]?.value?.trim() || '';
   const sevMap2 = {'low':'low','medium':'med','high':'high','critical':'crit'};
 
@@ -4053,11 +4045,6 @@ function renderTrackedCase(caseData, messages = []) {
           ${buildTrackingInfoItem(
             'Category',
             category
-          )}
-
-          ${buildTrackingInfoItem(
-            'Severity',
-            severity
           )}
 
           ${buildTrackingInfoItem(
