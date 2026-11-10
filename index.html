@@ -2001,6 +2001,8 @@ async function loadIGUDashboardData() {
         mapSharePointCaseToDashboard
       );
 
+    syncCaseSubmissionAudit(CASES);
+
     MESSAGES =
       sourceMessages.map(
         mapSharePointMessageToDashboard
@@ -2697,8 +2699,82 @@ function addAuditEntry(icon, bg, action, detail) {
   const now = new Date();
   const time = now.toLocaleDateString('en-MY', {day:'numeric',month:'short',year:'numeric'}) + ', ' +
                now.toLocaleTimeString('en-MY', {hour:'2-digit',minute:'2-digit'});
-  AUDIT_LOG.unshift({icon, bg, action, detail, time});
+  AUDIT_LOG.unshift({icon, bg, action, detail, time, occurredAt: now.toISOString()});
   saveData();
+}
+
+function syncCaseSubmissionAudit(cases) {
+  const knownEvents = new Set(
+    AUDIT_LOG
+      .map(function (entry) {
+        return entry.eventId;
+      })
+      .filter(Boolean)
+  );
+  let addedEvent = false;
+
+  cases.forEach(function (caseRecord) {
+    const caseKey =
+      caseRecord.itemId ??
+      caseRecord.code ??
+      caseRecord.id;
+
+    if (caseKey == null || String(caseKey).trim() === '') {
+      return;
+    }
+
+    const eventId = 'case-received:' + String(caseKey);
+    if (knownEvents.has(eventId)) {
+      return;
+    }
+
+    const submittedAt =
+      parsePortalDate(caseRecord.submittedRaw);
+    const caseLabel =
+      caseRecord.code || caseRecord.id;
+    const category =
+      caseRecord.cat || caseRecord.category || 'Other Integrity Concern';
+
+    AUDIT_LOG.push({
+      eventId: eventId,
+      icon: '📥',
+      bg: 'var(--blue-pale)',
+      action: 'Case #' + caseLabel + ' received',
+      detail: 'Submitted via VOX · Category: ' + category,
+      time: submittedAt
+        ? submittedAt.toLocaleDateString('en-MY', {day:'numeric',month:'short',year:'numeric'}) + ', ' +
+          submittedAt.toLocaleTimeString('en-MY', {hour:'2-digit',minute:'2-digit'})
+        : 'Date unavailable',
+      occurredAt: submittedAt ? submittedAt.toISOString() : null
+    });
+
+    knownEvents.add(eventId);
+    addedEvent = true;
+  });
+
+  if (addedEvent) {
+    saveData();
+  }
+}
+
+function getSortedAuditLog() {
+  return AUDIT_LOG
+    .map(function (entry, index) {
+      const timestamp =
+        new Date(entry.occurredAt || entry.time || '').getTime();
+
+      return {
+        entry: entry,
+        index: index,
+        timestamp: Number.isNaN(timestamp) ? 0 : timestamp
+      };
+    })
+    .sort(function (first, second) {
+      return second.timestamp - first.timestamp || first.index - second.index;
+    })
+    .map(function (item) {
+      return item.entry;
+    });
 }
 
 // ══════════════════════════════════════════
@@ -3071,10 +3147,10 @@ function renderOverviewActivity() {
     return;
   }
   const dotColors = {'📥':'var(--blue)','✅':'var(--g3)','💬':'var(--g4)','📝':'var(--gold)','✏️':'var(--orange)','🔒':'var(--text4)'};
-  el.innerHTML = AUDIT_LOG.slice(0,5).map(a => `
+  el.innerHTML = getSortedAuditLog().slice(0,5).map(a => `
     <div class="act-item">
       <div class="act-dot" style="background:${dotColors[a.icon]||'var(--text4)'};"></div>
-      <div><div class="act-text">${a.action}</div><div class="act-time">${a.time}</div></div>
+      <div><div class="act-text">${escapeHtml(a.action)}</div><div class="act-time">${escapeHtml(a.time)}</div></div>
     </div>`).join('');
 }
 
@@ -3321,10 +3397,10 @@ function renderAuditLog() {
     el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);"><div style="font-size:28px;margin-bottom:8px;">📋</div><div style="font-size:13px;font-weight:600;">No activity yet</div><div style="font-size:12px;margin-top:4px;">Actions will be recorded here</div></div>';
     return;
   }
-  el.innerHTML = AUDIT_LOG.map(a => `
+  el.innerHTML = getSortedAuditLog().map(a => `
     <div class="audit-item">
-      <div class="audit-icon" style="background:${a.bg};">${a.icon}</div>
-      <div class="audit-body"><div class="audit-action">${a.action}</div><div class="audit-detail">${a.detail}</div><div class="audit-time">${a.time}</div></div>
+      <div class="audit-icon" style="background:${escapeHtml(a.bg)};">${escapeHtml(a.icon)}</div>
+      <div class="audit-body"><div class="audit-action">${escapeHtml(a.action)}</div><div class="audit-detail">${escapeHtml(a.detail)}</div><div class="audit-time">${escapeHtml(a.time)}</div></div>
     </div>
   `).join('');
 }
