@@ -220,7 +220,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 .tc-copy:hover{background:var(--g5);}
 
 /* ─── TRACK PAGE ─────────────────── */
-.track-wrap{max-width:1120px;margin:56px auto;padding:0 24px;}
+.track-wrap{max-width:660px;margin:72px auto;padding:0 24px;}
 .track-hero{text-align:center;margin-bottom:40px;}
 .track-hero h1{font-size:30px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px;}
 .track-hero p{font-size:14.5px;color:var(--text2);}
@@ -232,40 +232,6 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 .btn-track:hover{background:linear-gradient(135deg,#00E0A8,#0A8A9A);}
 
 .case-card{background:#fff;border:1.5px solid var(--border);border-radius:var(--r2);overflow:hidden;box-shadow:var(--sh);}
-
-.tracked-case-layout{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:18px;align-items:start;}
-.tracked-case-layout .case-card{min-width:0;}
-.process-card{background:#fff;border:1.5px solid var(--border);border-radius:var(--r2);padding:22px 20px;box-shadow:var(--sh);position:sticky;top:84px;}
-.process-card-title{font-size:14px;font-weight:800;color:var(--text);margin-bottom:5px;}
-.process-card-sub{font-size:11.5px;color:var(--text3);line-height:1.5;margin-bottom:20px;}
-.process-steps{list-style:none;padding:0;margin:0;}
-.process-step{display:grid;grid-template-columns:26px minmax(0,1fr);gap:11px;position:relative;padding:0 0 21px;}
-.process-step:last-child{padding-bottom:0;}
-.process-step:not(:last-child):before{content:"";position:absolute;left:12px;top:27px;bottom:0;width:2px;background:var(--border);}
-.process-marker{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#edf3f3;color:#8aa2a8;font-size:11px;font-weight:800;z-index:1;border:2px solid #edf3f3;}
-.process-step.complete .process-marker{background:var(--g3);border-color:var(--g3);color:#fff;}
-.process-step.current .process-marker{background:#fff;border:2px solid var(--g2);color:var(--g2);box-shadow:0 0 0 4px var(--g6);}
-.process-step.complete:not(:last-child):before{background:var(--g3);}
-.process-step-name{font-size:12px;font-weight:700;color:#9aabb0;line-height:1.35;padding-top:4px;}
-.process-step-desc{font-size:10.5px;color:#a8b7bb;line-height:1.45;margin-top:4px;}
-.process-step.complete .process-step-name{color:var(--text2);}
-.process-step.complete .process-step-desc{color:var(--text3);}
-.process-step.current .process-step-name{color:var(--g1);}
-.process-step.current .process-step-desc{color:var(--text3);}
-.process-current-note{margin-top:18px;padding:10px 11px;background:var(--off);border:1px solid var(--border);border-radius:8px;font-size:10.5px;color:var(--text3);line-height:1.5;}
-@media(max-width:860px){
-  .tracked-case-layout{grid-template-columns:1fr;}
-  .process-card{position:static;grid-row:1;}
-  .process-steps{display:grid;grid-template-columns:1fr 1fr;column-gap:12px;}
-  .process-step{padding-bottom:15px;}
-}
-@media(max-width:520px){
-  .track-wrap{margin:30px auto;padding:0 14px;}
-  .case-hdr{padding:18px;}
-  .tracked-case-layout .case-card .chat-box{padding:18px;}
-  .process-steps{grid-template-columns:1fr;}
-}
-
 .case-hdr{padding:22px 26px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
 .case-id{font-size:11.5px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;}
 .case-title{font-size:17px;font-weight:700;color:var(--text);}
@@ -1205,6 +1171,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 <option value="High">Severity: High</option>
 <option value="Critical">Severity: Critical</option>
 </select><select class="status-select" id="panel-status-select" onchange="updateCaseStatus(this.value)">
+<option value="Received">Received</option>
 <option value="Under Review">Under Review</option>
 <option value="Investigation">Investigation</option>
 <option value="Resolved">Resolved</option>
@@ -1212,12 +1179,13 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 </select>
 <select class="assign-select" id="panel-assign-select">
 <option>Assign to...</option>
+<option value="Not Assigned">Not Assigned</option>
 <option>Mohd Asyraf Aiman (IGU Manager)</option>
 <option>Muhammad Ali Imraan (Sr. Manager IGU)</option>
 <option>Nik Mohamed Fahmy (Head, Risk &amp; Compliance)</option>
 </select>
 <button class="btn-sm primary" onclick="saveCaseUpdates()">💾 Save</button>
-<button class="btn-sm outline" onclick="showToast('Report exported.','success')">📄 Export</button>
+<button class="btn-sm outline" onclick="exportCurrentCase()">📄 Export</button>
 </div>
 <div class="panel-section">
 <div class="panel-section-title">Case Description</div>
@@ -1301,7 +1269,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 <div class="form-group"><label class="form-label">Role</label><select class="form-input"><option>Investigator</option><option>Senior Investigator</option><option>IGU Manager</option></select></div>
 <div style="display:flex;gap:8px;justify-content:flex-end;">
 <button class="btn-sm outline" onclick="closeModalCenter(null,'modal-add-officer')">Cancel</button>
-<button class="btn-sm primary" onclick="closeModalCenter(null,'modal-add-officer');showToast('Officer added. Invitation email sent.','success')">Add Officer</button>
+<button class="btn-sm primary" onclick="closeModalCenter(null,'modal-add-officer');showToast('Officer management is not connected yet. Officers are currently added by IT in the portal code.','warning')">Add Officer</button>
 </div>
 </div>
 </div>
@@ -1354,6 +1322,10 @@ const POWER_AUTOMATE_IGU_MESSAGE_URL =
 
 const POWER_AUTOMATE_IGU_CASES_URL =
   'https://defaultcc9afa7759004c388262c226c4c2e2.7d.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/18/workflows/8bd3a20712a54b4493b9308dae3411ee/triggers/manual/paths/invoke?api-version=1';
+
+// Power Automate flow that saves severity / status / officer back to SharePoint.
+// Paste the flow's HTTP URL here once the flow exists (see handover notes). Leave empty until then.
+const POWER_AUTOMATE_IGU_UPDATE_URL = 'https://defaultcc9afa7759004c388262c226c4c2e2.7d.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/09/workflows/1096f08109f14a279a569d777832cab6/triggers/manual/paths/invoke?api-version=1';
 
 const PORTAL_KEY =
   "PHB-IP-PILOT-2026";
@@ -3183,6 +3155,44 @@ function renderAuditLog() {
 // ══════════════════════════════════════════
 //  CASE PANEL
 // ══════════════════════════════════════════
+function exportCurrentCase() {
+  const c = CASES.find(function (x) { return String(x.id) === String(window._panelCaseId); });
+  if (!c) { showToast('Open a case first.', 'warning'); return; }
+  const lines = [
+    'PHB INTEGRITY PORTAL - CASE REPORT', '',
+    'Tracking code : ' + (c.code || c.id),
+    'Title         : ' + c.title,
+    'Category      : ' + (c.cat || ''),
+    'Severity      : ' + (c.severity || 'Not Assigned'),
+    'Status        : ' + c.status,
+    'Assigned to   : ' + (c.assigned || 'Not Assigned'),
+    'Incident date : ' + (c.date || ''),
+    'Submitted     : ' + (c.submittedAt || ''),
+    'Department    : ' + (c.dept || ''),
+    'Persons       : ' + (c.persons || ''),
+    'Submission    : ' + (c.anonymous ? 'Anonymous' : 'Identified'), '',
+    'DESCRIPTION', c.desc || '', '',
+    'INVESTIGATION NOTES', c.notes || '(none)'
+  ];
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (c.code || ('case-' + c.id)) + '.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  showToast('Case report downloaded.', 'success');
+}
+function setSelectValue(sel, val) {
+  if (!sel) return;
+  Array.from(sel.querySelectorAll('option[data-temp]')).forEach(function (o) { o.remove(); });
+  val = (val === undefined || val === null) ? '' : String(val).trim();
+  if (val && !Array.from(sel.options).some(function (o) { return o.value === val || o.text === val; })) {
+    const o = document.createElement('option');
+    o.value = val; o.textContent = val; o.setAttribute('data-temp', '1');
+    sel.appendChild(o);
+  }
+  sel.value = val;
+}
 function openCasePanel(caseId) {
   const c = CASES.find(x => x.id === caseId);
   if (!c) return;
@@ -3190,7 +3200,7 @@ function openCasePanel(caseId) {
   document.getElementById('panel-case-id').textContent = c.code || ('PHB-' + new Date().getFullYear() + '-' + c.id);
   document.getElementById('panel-case-title').textContent = c.title;
   document.getElementById('panel-meta').innerHTML = `
-    <span class="status-badge ${c.status === 'Under Review' ? 's-review' : c.status === 'Investigation' ? 's-investigation' : c.status === 'Resolved' ? 's-resolved' : 's-closed'}">${c.status}</span>
+    <span class="status-badge ${c.status === 'Received' ? 's-received' : c.status === 'Under Review' ? 's-review' : c.status === 'Investigation' ? 's-investigation' : c.status === 'Resolved' ? 's-resolved' : 's-closed'}">${c.status}</span>
     <span style="background:var(--off);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11.5px;font-weight:700;color:${pcolor};">${plabel}</span>
     <span style="background:var(--off);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11.5px;color:var(--text3);">${c.cat}</span>
   `;
@@ -3203,9 +3213,9 @@ function openCasePanel(caseId) {
     <div class="panel-info-item"><div class="pii-label">Assigned To</div><div class="pii-val">${c.assigned}</div></div>
     <div class="panel-info-item"><div class="pii-label">Submission</div><div class="pii-val">${c.anonymous ? '🎭 Anonymous' : '👤 Identified'}</div></div>
   `;
-  document.getElementById('panel-severity-select').value = c.severity || 'Not Assigned';
-  document.getElementById('panel-status-select').value = c.status;
-  document.getElementById('panel-assign-select').value = c.assigned;
+  setSelectValue(document.getElementById('panel-severity-select'), c.severity || 'Not Assigned');
+  setSelectValue(document.getElementById('panel-status-select'), c.status || 'Received');
+  setSelectValue(document.getElementById('panel-assign-select'), c.assigned || 'Not Assigned');
   // Render actual thread from case data
   const thread = c.thread || [];
   const threadHTML = thread.length === 0
@@ -3265,7 +3275,7 @@ function closeCasePanel(e) {
   document.body.style.overflow = '';
 }
 function updateCaseStatus(val) { /* preview only — save on Save button */ }
-function saveCaseUpdates() {
+function saveCaseUpdatesLocal(silent) {
   const caseId = window._panelCaseId;
   const newSeverity = document.getElementById('panel-severity-select').value;
   const newStatus = document.getElementById('panel-status-select').value;
@@ -3282,7 +3292,7 @@ function saveCaseUpdates() {
     if (newAssign && newAssign !== 'Assign to...') {
       c.assigned = newAssign;
       const initials = newAssign.split(' ').filter(w=>w.length>1&&!/[()]/g.test(w)).map(w=>w[0]).join('').substring(0,2).toUpperCase();
-      c.av = initials; c.avc = 'var(--g2)';
+      c.av = newAssign === 'Not Assigned' ? 'UA' : initials; c.avc = 'var(--g2)';
     }
     if (oldSeverity !== newSeverity) {
       addAuditEntry('⚡', 'var(--gold-pale)', 'Case #' + c.id + ' severity → ' + newSeverity, 'Updated by IGU Officer');
@@ -3297,7 +3307,50 @@ function saveCaseUpdates() {
     }
     saveData();
     renderAll();
-    showToast('Case updated — reporter will see status change in their tracking page.', 'success');
+    if (!silent) showToast('Saved in this browser session only. It is NOT yet written to SharePoint, so it will reset when the dashboard reloads.', 'warning');
+  }
+}
+async function saveCaseUpdates() {
+  if (!POWER_AUTOMATE_IGU_UPDATE_URL) { saveCaseUpdatesLocal(false); return; }
+  const caseId = window._panelCaseId;
+  const c = CASES.find(function (x) { return String(x.id) === String(caseId); });
+  if (!c) { showToast('Error: Case not found.', 'warning'); return; }
+  const account = msalInstance.getActiveAccount();
+  if (!account || !isAuthorizedIGUOfficer(account)) {
+    showToast('Please sign in using an authorised IGU account.', 'warning');
+    return;
+  }
+  const assignVal = document.getElementById('panel-assign-select').value;
+  const payload = {
+    itemId: c.itemId,
+    trackingCode: c.code,
+    severity: document.getElementById('panel-severity-select').value,
+    status: document.getElementById('panel-status-select').value,
+    assignedOfficer: (assignVal && assignVal !== 'Assign to...') ? assignVal : (c.assigned || 'Not Assigned'),
+    officerDisplayName: account.name || account.username || 'IGU Officer',
+    officerUPN: account.username || ''
+  };
+  try {
+    const accessToken = await getPowerAutomateAccessToken();
+    if (!accessToken) return;
+    const response = await fetch(POWER_AUTOMATE_IGU_UPDATE_URL, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const text = await response.text();
+    let result = {};
+    try { result = text ? JSON.parse(text) : {}; } catch (e) { console.error('Update flow response:', text); }
+    const ok = result.success === true || String(result.success).toLowerCase() === 'true';
+    if (!response.ok || !ok) {
+      throw new Error(result.message || result.error?.message || ('Update failed with HTTP ' + response.status + '.'));
+    }
+    showToast('Case updated in SharePoint.', 'success');
+    const refreshed = await loadIGUDashboardData();
+    if (refreshed) openCasePanel(String(caseId));
+  } catch (error) {
+    console.error('Case update failed:', error);
+    showToast(error.message || 'Could not save the case. Please try again.', 'error');
   }
 }
 async function sendPanelMessage() {
@@ -3924,7 +3977,6 @@ async function lookupCase() {
   resultContainer.style.display = 'block';
 
   resultContainer.innerHTML = `
-    <div class="tracked-case-layout">
     <div class="case-card">
       <div style="
         padding:32px;
@@ -3939,7 +3991,6 @@ async function lookupCase() {
 
         Checking case status...
       </div>
-    </div>
     </div>
   `;
 
@@ -4089,7 +4140,6 @@ function renderTrackedCase(caseData, messages = []) {
   resultContainer.style.display = 'block';
 
   resultContainer.innerHTML = `
-    <div class="tracked-case-layout">
     <div class="case-card">
 
       <div class="case-hdr">
@@ -4229,8 +4279,6 @@ function renderTrackedCase(caseData, messages = []) {
       </div>
 
     </div>
-    ${buildTrackingProcess(status)}
-    </div>
   `;
 
   initialiseTrackingChat();
@@ -4244,70 +4292,6 @@ function renderTrackedCase(caseData, messages = []) {
     scrollTrackingConversation();
   }, 100);
 }
-
-function buildTrackingProcess(status) {
-  const stages = [
-    {
-      name: 'Report Received',
-      description: 'Your report has been successfully submitted.'
-    },
-    {
-      name: 'Initial Review',
-      description: 'The report is being assessed by the IGU.'
-    },
-    {
-      name: 'Investigation',
-      description: 'Further checks and investigation are in progress.'
-    },
-    {
-      name: 'Resolution',
-      description: 'The outcome and any actions are being finalised.'
-    },
-    {
-      name: 'Case Closed',
-      description: 'The case process has been completed.'
-    }
-  ];
-
-  const normalised = String(status || 'Received').trim().toLowerCase();
-  const statusIndex = {
-    'received': 0,
-    'under review': 1,
-    'investigation': 2,
-    'resolved': 3,
-    'closed': 4
-  };
-  const currentIndex = statusIndex[normalised] ?? 0;
-
-  const stepsHtml = stages.map(function(stage, index) {
-    const isComplete = index < currentIndex;
-    const isCurrent = index === currentIndex;
-    const stateClass = isComplete ? 'complete' : (isCurrent ? 'current' : 'pending');
-    const marker = isComplete ? '✓' : (isCurrent ? '●' : String(index + 1));
-
-    return `
-      <li class="process-step ${stateClass}">
-        <span class="process-marker" aria-hidden="true">${marker}</span>
-        <div>
-          <div class="process-step-name">${stage.name}</div>
-          <div class="process-step-desc">${stage.description}</div>
-        </div>
-      </li>
-    `;
-  }).join('');
-
-  return `
-    <aside class="process-card" aria-label="Case process tracker">
-      <div class="process-card-title">Case Progress</div>
-      <div class="process-card-sub">Follow the key stages of your report.</div>
-      <ol class="process-steps">${stepsHtml}</ol>
-      <div class="process-current-note">
-        <strong>Current status:</strong> ${escapeHtml(status)}
-      </div>
-    </aside>
-  `;
-}
-
 
 function buildTrackingConversation(messages) {
   if (
