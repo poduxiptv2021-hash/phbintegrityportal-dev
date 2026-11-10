@@ -1996,6 +1996,9 @@ async function loadIGUDashboardData() {
         ? result.messages
         : [];
 
+    locallyReadMessageIds =
+      loadLocallyReadMessageIds();
+
     CASES =
       sourceCases.map(
         mapSharePointCaseToDashboard
@@ -2236,6 +2239,14 @@ function mapSharePointMessageToDashboard(
     senderType.toLowerCase() ===
     'reporter';
 
+  const isRead =
+    normaliseBoolean(
+      source.isRead
+    ) ||
+    locallyReadMessageIds.has(
+      getDashboardMessageReadKey(source)
+    );
+
   return {
     id:
       String(
@@ -2296,14 +2307,10 @@ function mapSharePointMessageToDashboard(
 
     unread:
       isReporter &&
-      !normaliseBoolean(
-        source.isRead
-      ),
+      !isRead,
 
     isRead:
-      normaliseBoolean(
-        source.isRead
-      ),
+      isRead,
 
     visibleToReporter:
       normaliseBoolean(
@@ -2324,28 +2331,117 @@ function mapSharePointMessageToDashboard(
   };
 }
 
+let locallyReadMessageIds = new Set();
+
+function getDashboardMessageReadKey(message) {
+  const messageId =
+    String(message.messageId ?? '').trim();
+
+  if (messageId) {
+    return 'id:' + messageId;
+  }
+
+  const stableFields = JSON.stringify([
+    message.caseItemId ?? message.caseId ?? message.trackingCode ?? '',
+    message.sentOn || '',
+    message.senderType || '',
+    message.messageText || ''
+  ]);
+  let hash = 2166136261;
+
+  for (let index = 0; index < stableFields.length; index += 1) {
+    hash = Math.imul(
+      hash ^ stableFields.charCodeAt(index),
+      16777619
+    );
+  }
+
+  return 'fallback:' + (hash >>> 0).toString(16);
+}
+
+function getReadMessageStorageKey() {
+  const account =
+    msalInstance.getActiveAccount();
+
+  return 'phb_igu_read_messages_' +
+    String(account?.username || 'igu').toLowerCase();
+}
+
+function loadLocallyReadMessageIds() {
+  try {
+    const stored =
+      localStorage.getItem(
+        getReadMessageStorageKey()
+      );
+    const parsed =
+      stored ? JSON.parse(stored) : [];
+
+    if (!Array.isArray(parsed)) {
+      throw new Error('Stored read-message state is not an array.');
+    }
+
+    return new Set(parsed.map(String));
+  } catch (error) {
+    console.error(
+      'Could not load locally read messages:',
+      error
+    );
+    showToast(
+      'Previously viewed message state could not be loaded from this browser.',
+      'warning'
+    );
+    return new Set();
+  }
+}
+
+function saveLocallyReadMessageIds() {
+  try {
+    localStorage.setItem(
+      getReadMessageStorageKey(),
+      JSON.stringify(Array.from(locallyReadMessageIds))
+    );
+    return true;
+  } catch (error) {
+    console.error(
+      'Could not save locally read messages:',
+      error
+    );
+    showToast(
+      'Messages are marked as read for this session, but this browser could not save that state.',
+      'warning'
+    );
+    return false;
+  }
+}
+
+function messageBelongsToCase(message, caseRecord) {
+  const sameTrackingCode =
+    message.trackingCode &&
+    caseRecord.code &&
+    String(message.trackingCode).toUpperCase() ===
+    String(caseRecord.code).toUpperCase();
+
+  const sameCaseItemId =
+    message.caseItemId != null &&
+    caseRecord.itemId != null &&
+    String(message.caseItemId) ===
+    String(caseRecord.itemId);
+
+  const sameDashboardId =
+    String(message.caseId || '') ===
+    String(caseRecord.id || '');
+
+  return sameTrackingCode || sameCaseItemId || sameDashboardId;
+}
+
 function attachMessagesToCases() {
   CASES.forEach(function (caseRecord) {
     caseRecord.thread =
       MESSAGES
         .filter(function (message) {
-          const sameTrackingCode =
-            message.trackingCode &&
-            caseRecord.code &&
-            message.trackingCode
-              .toUpperCase() ===
-            caseRecord.code
-              .toUpperCase();
-
-          const sameCaseItemId =
-            message.caseItemId != null &&
-            caseRecord.itemId != null &&
-            String(message.caseItemId) ===
-            String(caseRecord.itemId);
-
-          return (
-            sameTrackingCode ||
-            sameCaseItemId
+          return messageBelongsToCase(
+            message,
+            caseRecord
           );
         })
         .sort(function (first, second) {
@@ -2988,26 +3084,9 @@ function renderMessages() {
     .map(function (message) {
       const caseRecord =
         CASES.find(function (item) {
-          const sameTrackingCode =
-            message.trackingCode &&
-            item.code &&
-            String(message.trackingCode).toUpperCase() ===
-            String(item.code).toUpperCase();
-
-          const sameCaseItemId =
-            message.caseItemId != null &&
-            item.itemId != null &&
-            String(message.caseItemId) ===
-            String(item.itemId);
-
-          const sameDashboardId =
-            String(message.caseId || '') ===
-            String(item.id || '');
-
-          return (
-            sameTrackingCode ||
-            sameCaseItemId ||
-            sameDashboardId
+          return messageBelongsToCase(
+            message,
+            item
           );
         });
 
@@ -3150,10 +3229,16 @@ function openReporterMessage(caseId) {
     return;
   }
 
+  const caseRecord =
+    CASES.find(function (item) {
+      return String(item.id) === String(caseId);
+    });
+  let readStateChanged = false;
+
   MESSAGES.forEach(function (message) {
     if (
-      String(message.caseId || '') ===
-      String(caseId) &&
+      caseRecord &&
+      messageBelongsToCase(message, caseRecord) &&
       String(
         message.senderType ||
         message.from ||
@@ -3163,9 +3248,24 @@ function openReporterMessage(caseId) {
         .toLowerCase() === 'reporter'
     ) {
       message.unread = false;
+      message.isRead = true;
+
+      const readMessageKey =
+        getDashboardMessageReadKey(message);
+
+      if (!locallyReadMessageIds.has(readMessageKey)) {
+        locallyReadMessageIds.add(readMessageKey);
+        readStateChanged = true;
+      }
     }
   });
 
+  if (readStateChanged) {
+    saveLocallyReadMessageIds();
+    saveData();
+  }
+
+  renderMessages();
   updateBadges();
   switchDashView('view-all');
   openCasePanel(String(caseId));
