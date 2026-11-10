@@ -406,6 +406,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 .risk-name{font-size:12.5px;font-weight:600;color:var(--text);flex:1;}
 .risk-bar-wrap{width:90px;height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
 .risk-bar{height:100%;border-radius:3px;}
+.rb-category{background:var(--g2);}
 .rb-crit{background:var(--red);}
 .rb-high{background:var(--orange);}
 .rb-med{background:var(--gold);}
@@ -1033,12 +1034,8 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 </div>
 <div class="dash-card">
 <div class="dc-header"><div class="dc-title">Risk by Category</div></div>
-<div class="risk-list">
-<div class="risk-item"><span style="font-size:14px;">🛒</span><span class="risk-name">Procurement</span><div class="risk-bar-wrap"><div class="risk-bar rb-crit" style="width:85%;"></div></div><span class="risk-count">18</span></div>
-<div class="risk-item"><span style="font-size:14px;">⚠️</span><span class="risk-name">Conflict of Interest</span><div class="risk-bar-wrap"><div class="risk-bar rb-high" style="width:60%;"></div></div><span class="risk-count">11</span></div>
-<div class="risk-item"><span style="font-size:14px;">💰</span><span class="risk-name">Fraud / Assets</span><div class="risk-bar-wrap"><div class="risk-bar rb-med" style="width:45%;"></div></div><span class="risk-count">8</span></div>
-<div class="risk-item"><span style="font-size:14px;">🎁</span><span class="risk-name">Gift &amp; Hospitality</span><div class="risk-bar-wrap"><div class="risk-bar rb-low" style="width:30%;"></div></div><span class="risk-count">6</span></div>
-<div class="risk-item"><span style="font-size:14px;">👔</span><span class="risk-name">Abuse of Power</span><div class="risk-bar-wrap"><div class="risk-bar rb-high" style="width:20%;"></div></div><span class="risk-count">4</span></div>
+<div class="risk-list" id="risk-by-category">
+<!-- rendered dynamically from cases -->
 </div>
 </div>
 </div>
@@ -1113,7 +1110,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
 <div class="dash-card"><div class="dc-header"><div class="dc-title">Monthly Case Volume</div></div><div class="chart-wrap"><div class="bars-container" style="height:140px;"><div class="bar-wrap"><div class="bar-val">6</div><div class="bar green" style="height:50px;"></div><div class="bar-label">Dec</div></div><div class="bar-wrap"><div class="bar-val">9</div><div class="bar green" style="height:75px;"></div><div class="bar-label">Jan</div></div><div class="bar-wrap"><div class="bar-val">7</div><div class="bar green" style="height:58px;"></div><div class="bar-label">Feb</div></div><div class="bar-wrap"><div class="bar-val">11</div><div class="bar green" style="height:92px;"></div><div class="bar-label">Mar</div></div><div class="bar-wrap"><div class="bar-val">8</div><div class="bar gold" style="height:67px;"></div><div class="bar-label">Apr</div></div><div class="bar-wrap"><div class="bar-val">6</div><div class="bar gold" style="height:50px;"></div><div class="bar-label">May</div></div></div></div></div>
-<div class="dash-card"><div class="dc-header"><div class="dc-title">Cases by Category</div></div><div class="risk-list" style="padding:18px 20px;gap:12px;"><div class="risk-item"><span style="font-size:14px;">🛒</span><span class="risk-name">Procurement</span><div class="risk-bar-wrap" style="width:120px;"><div class="risk-bar rb-crit" style="width:85%;"></div></div><span class="risk-count">18</span></div><div class="risk-item"><span style="font-size:14px;">⚠️</span><span class="risk-name">Conflict of Interest</span><div class="risk-bar-wrap" style="width:120px;"><div class="risk-bar rb-high" style="width:60%;"></div></div><span class="risk-count">11</span></div><div class="risk-item"><span style="font-size:14px;">💰</span><span class="risk-name">Fraud / Assets</span><div class="risk-bar-wrap" style="width:120px;"><div class="risk-bar rb-med" style="width:45%;"></div></div><span class="risk-count">8</span></div><div class="risk-item"><span style="font-size:14px;">🎁</span><span class="risk-name">Gift &amp; Hospitality</span><div class="risk-bar-wrap" style="width:120px;"><div class="risk-bar rb-low" style="width:30%;"></div></div><span class="risk-count">6</span></div><div class="risk-item"><span style="font-size:14px;">👔</span><span class="risk-name">Abuse of Power</span><div class="risk-bar-wrap" style="width:120px;"><div class="risk-bar rb-high" style="width:20%;"></div></div><span class="risk-count">4</span></div></div></div>
+<div class="dash-card"><div class="dc-header"><div class="dc-title">Cases by Category</div></div><div class="risk-list" id="cases-by-category" style="padding:18px 20px;gap:12px;"></div></div>
 <div class="dash-card"><div class="dc-header"><div class="dc-title">Resolution Rate by Quarter</div></div><div class="chart-wrap"><div class="bars-container" style="height:140px;"><div class="bar-wrap"><div class="bar-val">79%</div><div class="bar green" style="height:95px;"></div><div class="bar-label">Q3'24</div></div><div class="bar-wrap"><div class="bar-val">83%</div><div class="bar green" style="height:110px;"></div><div class="bar-label">Q4'24</div></div><div class="bar-wrap"><div class="bar-val">83%</div><div class="bar green" style="height:110px;"></div><div class="bar-label">Q1'25</div></div><div class="bar-wrap"><div class="bar-val">87%</div><div class="bar gold" style="height:125px;"></div><div class="bar-label">Q2'25</div></div></div></div></div>
 <div class="dash-card"><div class="dc-header"><div class="dc-title">Anonymous vs Identified</div></div><div style="padding:18px 20px;"><div style="display:flex;gap:12px;margin-bottom:14px;"><div style="flex:1;background:var(--off);border-radius:9px;padding:14px;text-align:center;"><div style="font-size:24px;font-weight:800;color:var(--g1);">73%</div><div style="font-size:11.5px;color:var(--text3);">Anonymous</div></div><div style="flex:1;background:var(--off);border-radius:9px;padding:14px;text-align:center;"><div style="font-size:24px;font-weight:800;color:var(--navy);">27%</div><div style="font-size:11.5px;color:var(--text3);">Identified</div></div></div><div style="font-size:12px;color:var(--text3);line-height:1.5;">73% of reporters choose to remain anonymous, indicating strong confidence in the portal's anonymity protection.</div></div></div>
 </div>
@@ -2906,7 +2903,53 @@ function renderAll() {
   renderAuditLog();
   renderOfficers();
   renderCasesByMonth();
+  renderCategoryCharts();
   updateBadges();
+}
+
+function renderCategoryCharts() {
+  const charts = [
+    { element: document.getElementById('risk-by-category'), barWidth: 90 },
+    { element: document.getElementById('cases-by-category'), barWidth: 120 }
+  ].filter(chart => chart.element);
+  if (charts.length === 0) return;
+
+  const categories = new Map();
+  CASES.forEach(function (caseRecord) {
+    const category =
+      String(caseRecord.cat || caseRecord.category || 'Other Integrity Concern').trim() ||
+      'Other Integrity Concern';
+    const key = category.toLocaleLowerCase();
+    const existing = categories.get(key);
+    if (existing) {
+      existing.count++;
+    } else {
+      categories.set(key, { name: category, count: 1 });
+    }
+  });
+
+  const sortedCategories = Array.from(categories.values()).sort(function (a, b) {
+    return b.count - a.count || a.name.localeCompare(b.name);
+  });
+  const maxCount = sortedCategories.length > 0
+    ? sortedCategories[0].count
+    : 0;
+
+  charts.forEach(function (chart) {
+    chart.element.innerHTML = sortedCategories.length > 0
+      ? sortedCategories.map(function (category) {
+          const width = Math.round((category.count / maxCount) * 100);
+          return `<div class="risk-item">
+            <span style="font-size:14px;">📁</span>
+            <span class="risk-name">${escapeHtml(category.name)}</span>
+            <div class="risk-bar-wrap" style="width:${chart.barWidth}px;">
+              <div class="risk-bar rb-category" style="width:${width}%;"></div>
+            </div>
+            <span class="risk-count">${category.count}</span>
+          </div>`;
+        }).join('')
+      : '<div style="font-size:12px;color:var(--text3);text-align:center;padding:8px 0;">No cases to display.</div>';
+  });
 }
 
 function renderKPIs() {
