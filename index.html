@@ -486,6 +486,95 @@ select.form-input,.status-select,.assign-select{appearance:none;-webkit-appearan
   #pg-landing .vox h1{font-size:clamp(44px,5.2vw,76px);}
 }
 
+/* ═════ LAPTOP-FIT PASS (designed for 1280–1440px, scales up for large desktops) ═════ */
+body{font-size:13.5px;}
+.topnav{height:64px;padding:0 28px;}
+.nav-brand img{height:34px!important;}
+.nav-link{padding:8px 12px;font-size:13px;}
+.nav-cta{padding:9px 18px;font-size:13px;}
+.nav-user{font-size:12px;padding:4px 14px 4px 4px;}
+.nav-user svg{width:24px;height:24px;}
+
+/* dashboard shell */
+.dash-layout{grid-template-columns:232px minmax(0,1fr);min-height:calc(100vh - 64px);}
+.dash-sidebar{top:64px;height:calc(100vh - 64px);padding:16px 12px;}
+.ds-label{padding:8px 10px 6px;font-size:9.5px;}
+.ds-item{padding:8px 10px;gap:10px;border-radius:9px;margin-bottom:1px;}
+.ds-lbl{font-size:13px;}
+.ds-icon svg{width:17px;height:17px;}
+.ds-badge{font-size:10px;padding:1px 7px;min-width:20px;}
+.dash-divider{margin:8px 6px;}
+.dash-main{padding:26px 32px 48px;}
+.dash-topbar{margin-bottom:20px;}
+.dash-title{font-size:30px;}
+.dash-sub{font-size:12.5px;margin-top:4px;}
+.btn-sm{padding:7px 15px;font-size:12px;}
+
+/* kpis */
+.kpi-grid{gap:14px;margin-bottom:18px;}
+.kpi{padding:18px 20px;border-radius:16px;}
+.kpi-label{font-size:10px;margin-bottom:10px;letter-spacing:.09em;}
+.kpi-val{font-size:38px;}
+.kpi-delta{font-size:12px;margin-top:8px;}
+
+/* cards + tables: give the table the full width, put charts underneath side by side */
+.dash-grid2{grid-template-columns:minmax(0,1fr);gap:16px;margin-bottom:16px;}
+.dash-grid2 > div[style*="flex-direction:column"]{display:grid!important;grid-template-columns:1fr 1fr;gap:16px!important;align-items:start;}
+.dash-card{border-radius:16px;}
+.dc-header{padding:15px 20px;}
+.dc-title{font-size:16px;}
+.case-tbl{table-layout:auto;}
+.case-tbl th{padding:10px 16px;font-size:9.5px;letter-spacing:.1em;}
+.case-tbl td{padding:12px 16px;font-size:12.5px;}
+.case-tbl td:nth-child(2){min-width:0;width:34%;}
+.td-id{font-size:11px!important;}
+.td-title{font-size:13px;}
+.td-sub{font-size:11px;}
+.av{width:26px;height:26px;font-size:9.5px;}
+.chart-wrap{padding:16px 20px;}
+.bars-container{height:104px;}
+.risk-list{padding:14px 20px;gap:10px;}
+.activity-list{padding:14px 20px;gap:12px;}
+.filter-bar{margin-bottom:14px;}
+.search-input{padding:9px 16px;font-size:13px;min-width:200px;}
+.filter-btn{padding:7px 15px;font-size:12px;}
+.settings-grid{gap:16px;}
+.settings-card{padding:20px 22px;border-radius:16px;}
+.settings-card h3{font-size:17px;}
+.setting-row{padding:11px 0;}
+.case-panel{width:560px;}
+.panel-header{padding:18px 24px;}
+.panel-body{padding:22px 24px 32px;}
+.modal-box{padding:28px 30px;}
+
+/* report / track / faq */
+.report-sidebar{padding:22px max(32px,calc((100% - 860px)/2)) 20px;}
+.rs-title{font-size:26px;}
+.rs-steps{margin-top:18px;}
+.report-main{padding:32px 32px 64px;}
+.step-form.active{padding:36px 40px;max-width:800px;}
+.form-sec-title{font-size:30px;}
+.form-sec-sub{margin-bottom:26px;font-size:14px;}
+.form-group{margin-bottom:18px;}
+.form-nav{margin-top:32px;padding-top:22px;}
+.track-wrap{padding:48px 28px 72px;}
+.track-hero h1,.faq-wrap > h1{font-size:40px!important;}
+.faq-wrap{padding:48px 28px 72px;}
+.faq-q-text{font-size:17px;}
+
+/* large desktops get the roomier two-column dashboard back */
+@media(min-width:1600px){
+  .dash-layout{grid-template-columns:260px minmax(0,1fr);}
+  .dash-main{padding:32px 44px 56px;}
+  .dash-grid2{grid-template-columns:minmax(0,1fr) 340px;}
+  .dash-grid2 > div[style*="flex-direction:column"]{display:flex!important;flex-direction:column;}
+  .kpi-val{font-size:44px;}
+  .dash-title{font-size:34px;}
+}
+@media(max-width:1100px){.dash-grid2 > div[style*="flex-direction:column"]{grid-template-columns:1fr;}}
+@media(max-width:900px){.dash-layout{grid-template-columns:1fr;}.dash-sidebar{display:none;}.topnav{padding:0 16px;}}
+.case-tbl th{white-space:nowrap;}.case-tbl td:last-child{white-space:nowrap;}
+
 </style>
 </head>
 <body>
