@@ -1519,9 +1519,9 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 <select class="assign-select" id="panel-assign-select">
 <option>Assign to...</option>
 <option value="Not Assigned">Not Assigned</option>
-<option>Mohd Asyraf Aiman (IGU Manager)</option>
-<option>Muhammad Ali Imraan (Sr. Manager IGU)</option>
-<option>Nik Mohamed Fahmy (Head, Risk &amp; Compliance)</option>
+<option value="Mohd Asyraf Aiman (IGU Manager)" data-email="mohdasyrafaiman@phb.com.my">Mohd Asyraf Aiman (IGU Manager)</option>
+<option value="Muhammad Ali Imraan (Sr. Manager IGU)" data-email="muhammadaliimraan@phb.com.my">Muhammad Ali Imraan (Sr. Manager IGU)</option>
+<option value="Nik Mohamed Fahmy (Head, Risk &amp; Compliance)" data-email="nikmohamedfahmy@phb.com.my">Nik Mohamed Fahmy (Head, Risk &amp; Compliance)</option>
 </select>
 <button class="btn-sm primary" onclick="saveCaseUpdates()">💾 Save</button>
 <button class="btn-sm outline" onclick="exportCurrentCase()">📄 Export</button>
@@ -3888,6 +3888,20 @@ function exportCurrentCase() {
   setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   showToast('Case report downloaded.', 'success');
 }
+function setAssignSelect(c) {
+  const sel = document.getElementById('panel-assign-select');
+  if (!sel) return;
+  Array.from(sel.querySelectorAll('option[data-temp]')).forEach(function (o) { o.remove(); });
+  const email = String(c.assignedEmail || '').trim().toLowerCase();
+  if (email) {
+    const match = Array.from(sel.options).find(function (o) {
+      return String(o.getAttribute('data-email') || '').toLowerCase() === email;
+    });
+    if (match) { sel.value = match.value; return; }
+  }
+  setSelectValue(sel, c.assigned || 'Not Assigned');
+}
+
 function setSelectValue(sel, val) {
   if (!sel) return;
   Array.from(sel.querySelectorAll('option[data-temp]')).forEach(function (o) { o.remove(); });
@@ -3921,7 +3935,7 @@ function openCasePanel(caseId) {
   `;
   setSelectValue(document.getElementById('panel-severity-select'), c.severity || 'Not Assigned');
   setSelectValue(document.getElementById('panel-status-select'), c.status || 'Received');
-  setSelectValue(document.getElementById('panel-assign-select'), c.assigned || 'Not Assigned');
+  setAssignSelect(c);
   // Render actual thread from case data
   const thread = c.thread || [];
   const threadHTML = thread.length === 0
@@ -4027,13 +4041,24 @@ async function saveCaseUpdates() {
     showToast('Please sign in using an authorised IGU account.', 'warning');
     return;
   }
-  const assignVal = document.getElementById('panel-assign-select').value;
+  const assignSelect = document.getElementById('panel-assign-select');
+  const assignVal = assignSelect.value;
+  const assignOption = assignSelect.options[assignSelect.selectedIndex];
+  let assignedOfficerEmail = '';
+  if (assignVal === 'Not Assigned') {
+    assignedOfficerEmail = '';
+  } else if (assignOption && assignOption.getAttribute('data-email')) {
+    assignedOfficerEmail = assignOption.getAttribute('data-email');
+  } else {
+    assignedOfficerEmail = c.assignedEmail || '';
+  }
   const payload = {
     itemId: c.itemId,
     trackingCode: c.code,
     severity: document.getElementById('panel-severity-select').value,
     status: document.getElementById('panel-status-select').value,
     assignedOfficer: (assignVal && assignVal !== 'Assign to...') ? assignVal : (c.assigned || 'Not Assigned'),
+    assignedOfficerEmail: assignedOfficerEmail,
     officerDisplayName: account.name || account.username || 'IGU Officer',
     officerUPN: account.username || ''
   };
