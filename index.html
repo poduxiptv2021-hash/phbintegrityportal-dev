@@ -3415,7 +3415,48 @@ function renderMessages() {
     return;
   }
 
-  el.innerHTML = reporterMessages
+  // Group by case / tracking code: one row per report, showing only the
+  // latest reporter message. reporterMessages is already newest-first.
+  const groupMap = new Map();
+
+  reporterMessages.forEach(function (message) {
+    const owner =
+      CASES.find(function (item) {
+        return messageBelongsToCase(message, item);
+      });
+
+    const groupKey = String(
+      owner?.id ||
+      message.caseId ||
+      owner?.code ||
+      message.trackingCode ||
+      ('msg-' + (message.id || Math.random()))
+    );
+
+    let group = groupMap.get(groupKey);
+
+    if (!group) {
+      group = {
+        latest: message,
+        unreadCount: 0
+      };
+      groupMap.set(groupKey, group);
+    }
+
+    if (message.unread) {
+      group.unreadCount += 1;
+    }
+  });
+
+  const groupedMessages = Array.from(groupMap.values())
+    .map(function (group) {
+      return Object.assign({}, group.latest, {
+        unread: group.unreadCount > 0,
+        unreadCount: group.unreadCount
+      });
+    });
+
+  el.innerHTML = groupedMessages
     .map(function (message) {
       const caseRecord =
         CASES.find(function (item) {
@@ -3520,7 +3561,7 @@ function renderMessages() {
               </span>
 
               ${message.unread
-                ? '<span style="margin-left:auto;background:var(--red);color:#fff;padding:2px 8px;border-radius:999px;font-size:9px;font-weight:700;">NEW</span>'
+                ? '<span style="margin-left:auto;background:var(--red);color:#fff;padding:2px 8px;border-radius:999px;font-size:9px;font-weight:700;">' + (message.unreadCount > 1 ? message.unreadCount + ' NEW' : 'NEW') + '</span>'
                 : ''}
             </div>
 
