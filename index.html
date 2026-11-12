@@ -305,6 +305,15 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 .chat-input:focus{border-color:var(--g3);}
 .btn-send{padding:9px 16px;background:linear-gradient(135deg,#00C896,#067A8A);color:#fff;border-radius:8px;font-size:12.5px;font-weight:700;border:none;}
 .btn-send:hover{background:linear-gradient(135deg,#00E0A8,#0A8A9A);}
+.btn-attach{padding:9px 12px;background:#fff;color:var(--text2);border:1.5px solid var(--border2);border-radius:8px;font-size:15px;line-height:1;cursor:pointer;align-self:flex-start;}
+.btn-attach:hover{border-color:var(--g3);}
+.btn-attach:disabled{opacity:.5;cursor:not-allowed;}
+.chat-attach-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.chat-attach-chip{display:flex;align-items:center;gap:6px;background:var(--g6);border:1px solid var(--border);border-radius:999px;padding:4px 6px 4px 10px;font-size:11.5px;color:var(--text);max-width:100%;}
+.chat-attach-chip .cn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;}
+.chat-attach-chip .cs{color:var(--text4);font-size:10.5px;}
+.chat-attach-chip button{border:none;background:transparent;cursor:pointer;color:var(--text3);font-size:12px;padding:0 4px;}
+.chat-attach-hint{font-size:10.5px;color:var(--text4);margin-top:5px;}
 
 /* ─── FAQ ─────────────────── */
 .faq-wrap{max-width:740px;margin:64px auto;padding:0 24px 64px;}
@@ -4879,6 +4888,26 @@ function renderTrackedCase(caseData, messages = []) {
             : `
               <div class="chat-input-row">
 
+                <input
+                  type="file"
+                  id="track-chat-file"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip"
+                  multiple
+                  style="display:none;"
+                  onchange="handleTrackChatFiles(this.files); this.value='';"
+                />
+
+                <button
+                  type="button"
+                  class="btn-attach"
+                  id="track-attach-button"
+                  title="Attach files"
+                  aria-label="Attach files"
+                  onclick="document.getElementById('track-chat-file').click()"
+                >
+                  &#128206;
+                </button>
+
                 <textarea
                   class="chat-input"
                   id="track-chat-input"
@@ -4896,6 +4925,12 @@ function renderTrackedCase(caseData, messages = []) {
                   Send
                 </button>
 
+              </div>
+
+              <div class="chat-attach-list" id="track-attach-list"></div>
+
+              <div class="chat-attach-hint">
+                Attach up to 5 files (PDF, Word, Excel, JPG, PNG, ZIP). Max 10 MB each.
               </div>
 
               <div
@@ -5255,6 +5290,54 @@ document
     }
   );
 
+// ── Attachments in the reporter chat ──
+let trackChatFiles = [];
+
+function renderTrackChatFiles() {
+  const list = document.getElementById('track-attach-list');
+  if (!list) return;
+  list.innerHTML = trackChatFiles.map(function (f) {
+    return '<div class="chat-attach-chip">' +
+      '<span>\uD83D\uDCCE</span>' +
+      '<span class="cn">' + escapeHtml(f.name) + '</span>' +
+      '<span class="cs">' + escapeHtml(f.sizeLabel) + '</span>' +
+      '<button type="button" aria-label="Remove file" onclick="removeTrackChatFile(\'' + f.id + '\')">\u2715</button>' +
+      '</div>';
+  }).join('');
+}
+
+function removeTrackChatFile(id) {
+  trackChatFiles = trackChatFiles.filter(function (f) { return f.id !== id; });
+  renderTrackChatFiles();
+}
+
+function handleTrackChatFiles(files) {
+  Array.from(files).forEach(function (file) {
+    const ext = String(file.name).split('.').pop().toLowerCase();
+    if (ALLOWED_EVIDENCE_EXT.indexOf(ext) === -1) { showToast('File type not allowed: ' + file.name, 'warning'); return; }
+    if (file.size > MAX_EVIDENCE_FILE_BYTES) { showToast('File too large (max 10 MB): ' + file.name, 'warning'); return; }
+    if (trackChatFiles.length >= MAX_EVIDENCE_FILES) { showToast('You can attach up to ' + MAX_EVIDENCE_FILES + ' files per message.', 'warning'); return; }
+    const total = trackChatFiles.reduce(function (sum, f) { return sum + f.bytes; }, 0);
+    if (total + file.size > MAX_EVIDENCE_TOTAL_BYTES) { showToast('Total attachment size is limited to 15 MB.', 'warning'); return; }
+
+    const meta = {
+      id: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      name: cleanEvidenceFileName(file.name),
+      bytes: file.size,
+      sizeLabel: file.size > 1024 * 1024 ? (file.size / 1024 / 1024).toFixed(1) + ' MB' : Math.max(1, Math.round(file.size / 1024)) + ' KB',
+      contentType: file.type || 'application/octet-stream',
+      contentBase64: null
+    };
+    trackChatFiles.push(meta);
+    renderTrackChatFiles();
+
+    const reader = new FileReader();
+    reader.onload = function (e) { meta.contentBase64 = String(e.target.result).split(',')[1] || ''; };
+    reader.onerror = function () { removeTrackChatFile(meta.id); showToast('Could not read file: ' + file.name, 'warning'); };
+    reader.readAsDataURL(file);
+  });
+}
+
 async function sendTrackMessage() {
   const input =
     document.getElementById(
@@ -5266,16 +5349,23 @@ async function sendTrackMessage() {
       'track-send-button'
     );
 
-  const messageText =
-    input?.value?.trim();
+  let messageText =
+    input?.value?.trim() || '';
 
-  if (!messageText) {
+  const pendingFiles = trackChatFiles.slice();
+
+  if (!messageText && pendingFiles.length === 0) {
     showToast(
-      'Please enter a message.',
+      'Please enter a message or attach a file.',
       'warning'
     );
 
     input?.focus();
+    return;
+  }
+
+  if (pendingFiles.some(function (f) { return f.contentBase64 === null; })) {
+    showToast('Files are still loading. Please try again in a moment.', 'warning');
     return;
   }
 
@@ -5313,6 +5403,54 @@ async function sendTrackMessage() {
     }
 
     input.disabled = true;
+
+    // Upload attachments first so we only mention files that really arrived.
+    let uploadSummary = { ok: 0, failed: [] };
+    const uploadedNames = [];
+
+    if (pendingFiles.length > 0) {
+      for (let i = 0; i < pendingFiles.length; i++) {
+        const f = pendingFiles[i];
+        if (sendButton) sendButton.textContent = 'Uploading ' + (i + 1) + '/' + pendingFiles.length + '...';
+        try {
+          const upRes = await fetch(POWER_AUTOMATE_ATTACHMENT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              trackingCode: trackingCode,
+              fileName: f.name,
+              contentType: f.contentType,
+              contentBase64: f.contentBase64,
+              portalKey: PORTAL_KEY
+            })
+          });
+          const upText = await upRes.text();
+          let upResult = {};
+          try { upResult = JSON.parse(upText); } catch (e) { /* not JSON */ }
+          if (!upRes.ok || upResult.success !== true) {
+            throw new Error(upResult.message || ('HTTP ' + upRes.status));
+          }
+          uploadSummary.ok++;
+          uploadedNames.push(f.name);
+        } catch (upError) {
+          console.error('Chat attachment failed:', f.name, upError);
+          uploadSummary.failed.push(f.name);
+        }
+      }
+
+      // Everything failed and there is no text: stop, keep files so the user can retry.
+      if (uploadedNames.length === 0 && !messageText) {
+        throw new Error('The files could not be uploaded. Please try again.');
+      }
+
+      if (uploadedNames.length > 0) {
+        const note = '\uD83D\uDCCE Attached ' + uploadedNames.length + ' file(s): ' + uploadedNames.join(', ');
+        messageText = messageText ? (messageText + '\n\n' + note) : note;
+        if (messageText.length > 2000) messageText = messageText.slice(0, 2000);
+      }
+    }
+
+    if (sendButton) sendButton.textContent = 'Sending...';
 
     const response = await fetch(
       POWER_AUTOMATE_SEND_MESSAGE_URL,
@@ -5367,10 +5505,22 @@ async function sendTrackMessage() {
 
     input.value = '';
 
-    showToast(
-      'Message sent successfully.',
-      'success'
-    );
+    // Keep only files that failed so the user can retry them.
+    trackChatFiles = trackChatFiles.filter(function (f) {
+      return uploadSummary.failed.indexOf(f.name) !== -1;
+    });
+
+    if (uploadSummary.failed.length > 0) {
+      showToast(
+        'Message sent, but these files failed: ' + uploadSummary.failed.join(', '),
+        'warning'
+      );
+    } else {
+      showToast(
+        'Message sent successfully.',
+        'success'
+      );
+    }
 
     await lookupCase();
 
