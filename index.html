@@ -1513,6 +1513,10 @@ const POWER_AUTOMATE_IGU_CASES_URL =
 // so reporters are never told a file was received when it was not.
 const POWER_AUTOMATE_ATTACHMENT_URL = 'https://defaultcc9afa7759004c388262c226c4c2e2.7d.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/10/workflows/b9d1378d186d4724ad039ddb14c85846/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=C5HHSAtpqw02TyDTyYkAPmB8smtaGJvvIAGO65r3YKc';
 
+// Flow that lists the files attached to a case, for officers (IP-GetCaseAttachments).
+// Called with the officer's Microsoft sign-in, like the other officer flows.
+const POWER_AUTOMATE_IGU_ATTACHMENTS_URL = 'https://defaultcc9afa7759004c388262c226c4c2e2.7d.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/19/workflows/c14c09f33a4543f4a392ded4ee295f75/triggers/manual/paths/invoke?api-version=1';
+
 const POWER_AUTOMATE_IGU_UPDATE_URL = 'https://defaultcc9afa7759004c388262c226c4c2e2.7d.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/09/workflows/1096f08109f14a279a569d777832cab6/triggers/manual/paths/invoke?api-version=1';
 
 const PORTAL_KEY =
@@ -3577,6 +3581,73 @@ function renderAuditLog() {
 // ══════════════════════════════════════════
 //  CASE PANEL
 // ══════════════════════════════════════════
+async function loadCaseAttachments(c) {
+  const isCurrent = function () { return String(window._panelCaseId) === String(c.id); };
+  const body = function () { return document.getElementById('panel-files-body'); };
+  const setText = function (text) {
+    const el = body();
+    if (el && isCurrent()) el.textContent = text;
+  };
+
+  if (!POWER_AUTOMATE_IGU_ATTACHMENTS_URL) {
+    setText('The attachment list is not connected yet. Open this case in SharePoint to see any files.');
+    return;
+  }
+  const account = msalInstance.getActiveAccount();
+  if (!account || !isAuthorizedIGUOfficer(account)) {
+    setText('Sign in with an authorised IGU account to see attachments.');
+    return;
+  }
+  try {
+    const accessToken = await getPowerAutomateAccessToken();
+    if (!accessToken) { setText('Could not load attachments.'); return; }
+    const response = await fetch(POWER_AUTOMATE_IGU_ATTACHMENTS_URL, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trackingCode: c.code, officerUPN: account.username || '' })
+    });
+    const text = await response.text();
+    let result = {};
+    try { result = text ? JSON.parse(text) : {}; } catch (e) { console.error('Attachment list response:', text); }
+    const ok = result.success === true || String(result.success).toLowerCase() === 'true';
+    if (!response.ok || !ok) {
+      throw new Error(result.message || (result.error && result.error.message) || ('HTTP ' + response.status));
+    }
+    const files = Array.isArray(result.attachments) ? result.attachments : [];
+    const el = body();
+    if (!el || !isCurrent()) return;
+    if (files.length === 0) { el.textContent = 'No attachments submitted.'; return; }
+
+    el.textContent = '';
+    files.forEach(function (f) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;background:var(--off);border-radius:7px;padding:8px 12px;margin-bottom:5px;';
+      const icon = document.createElement('span');
+      icon.style.fontSize = '16px';
+      icon.textContent = '\uD83D\uDCCE';
+      const name = document.createElement('div');
+      name.style.cssText = 'flex:1;font-size:12.5px;font-weight:600;word-break:break-all;';
+      name.textContent = String(f.name || 'file');
+      row.appendChild(icon);
+      row.appendChild(name);
+      const url = String(f.url || '');
+      if (/^https:\/\//i.test(url)) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'Open';
+        link.style.cssText = 'font-size:10px;background:var(--g1);color:#fff;padding:4px 10px;border-radius:8px;font-weight:700;text-decoration:none;';
+        row.appendChild(link);
+      }
+      el.appendChild(row);
+    });
+  } catch (error) {
+    console.error('Could not load attachments:', error);
+    setText('Could not load attachments. Please try again.');
+  }
+}
+
 function exportCurrentCase() {
   const c = CASES.find(function (x) { return String(x.id) === String(window._panelCaseId); });
   if (!c) { showToast('Open a case first.', 'warning'); return; }
@@ -3681,7 +3752,8 @@ function openCasePanel(caseId) {
         </div>`).join('');
     } else {
       filesEl.style.display = 'block';
-      filesEl.innerHTML = '<div class="panel-section-title">📎 Attachments</div><div style="font-size:12px;color:var(--text4);padding:4px 0;">No attachments submitted.</div>';
+      filesEl.innerHTML = '<div class="panel-section-title">📎 Attachments</div><div style="font-size:12px;color:var(--text4);padding:4px 0;" id="panel-files-body">Checking for attachments...</div>';
+      loadCaseAttachments(c);
     }
   }
 
