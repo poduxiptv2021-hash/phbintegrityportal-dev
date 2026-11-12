@@ -931,7 +931,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 </div>   <p class="vx-lead vx-in" style="--d:.45s">VOX provides a trusted and confidential channel for reporting misconduct and integrity concerns, where every voice matters and every report is taken seriously, with care and discretion.</p>
    <div class="vx-cta vx-in" style="--d:.55s"><a class="vx-p" href="#" onclick="showPage('pg-report');resetReport();return false;">Submit a report</a><a class="vx-s" href="#" onclick="showPage('pg-track');return false;">Track my report</a></div>
    <ul class="vx-assure vx-in" style="--d:.65s">
-    <li><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>Secure</li>
+    <li><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>Secured</li>
     <li><svg viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 6.1A9 9 0 0121 12a9 9 0 01-2.2 3M6.2 7.3A9 9 0 003 12s3.5 6 9 6a8 8 0 003-.6"/></svg>Anonymous</li>
     <li><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>Protected by law</li>
    </ul>
@@ -3430,7 +3430,7 @@ function caseRow(c, extra='') {
     <td><span class="p-dot" style="background:${pcolor};display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;"></span><span style="font-size:12.5px;font-weight:700;color:${pcolor};">${plabel}</span></td>
     <td>${statusBadge(c.status)}</td>
     <td><div class="assignee"><div class="av" style="background:${c.avc};">${c.av}</div><span style="font-size:12px;color:var(--text2);">${c.assigned.split(' ')[0]}</span></div></td>
-    ${extra === 'days' ? `<td><span style="font-size:12.5px;font-weight:700;color:${c.days>7?'var(--red)':'var(--text2)'};">${c.days > 0 ? c.days+' days' : 'Closed'}</span></td>` : ''}
+    ${extra === 'days' ? `<td><span style="font-size:12.5px;font-weight:700;color:${c.days>7?'var(--red)':'var(--text2)'};">${String(c.status).toLowerCase() === 'closed' ? 'Closed' : (c.days === 1 ? '1 day' : (c.days || 0) + ' days')}</span></td>` : ''}
   </tr>`;
 }
 
