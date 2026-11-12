@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 
 <html lang="en">
 <head>
@@ -244,13 +244,31 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 .process-step:not(:last-child):before{content:"";position:absolute;left:12px;top:27px;bottom:0;width:2px;background:var(--border);}
 .process-marker{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#edf3f3;color:#8aa2a8;font-size:11px;font-weight:800;z-index:1;border:2px solid #edf3f3;}
 .process-step.complete .process-marker{background:var(--g3);border-color:var(--g3);color:#fff;}
-.process-step.current .process-marker{background:#fff;border:2px solid var(--g2);color:var(--g2);box-shadow:0 0 0 4px var(--g6);}
+.process-step.current .process-marker{background:#fffb00;border:2px solid var(--g2);color:var(--g2);box-shadow:0 0 0 4px var(--g6);}
 .process-step.complete:not(:last-child):before{background:var(--g3);}
 .process-step-name{font-size:12px;font-weight:700;color:#9aabb0;line-height:1.35;padding-top:4px;}
 .process-step-desc{font-size:10.5px;color:#a8b7bb;line-height:1.45;margin-top:4px;}
 .process-step.complete .process-step-name{color:var(--text2);}
 .process-step.complete .process-step-desc{color:var(--text3);}
-.process-step.current .process-step-name{color:var(--g1);}
+.process-step.current .process-step-name{color:var(--g1); animation: markerPulse 1.5s ease-in-out infinite;}
+
+@keyframes markerPulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 4px var(--g6);
+    }
+
+    50% {
+        transform: scale(1.15);
+        box-shadow: 0 0 0 9px transparent;
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 4px var(--g6);
+    }
+}
+
 .process-step.current .process-step-desc{color:var(--text3);}
 .process-current-note{margin-top:18px;padding:10px 11px;background:var(--off);border:1px solid var(--border);border-radius:8px;font-size:10.5px;color:var(--text3);line-height:1.5;}
 @media(max-width:860px){
@@ -798,7 +816,7 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
  </ol>
 </main>
 
-<footer><div class="vx-bar"><div>© 2025 Pelaburan Hartanah Berhad · Integrity &amp; Governance Unit (IGU) · All reports are confidential · wb@phb.com.my · +603-7713091</div><div class="vx-links"><a href="#" onclick="showPage('pg-faq');return false;">FAQ</a><a href="#" onclick="showModal('modal-privacy');return false;">Privacy policy</a><a href="#" onclick="showModal('modal-wpa');return false;">Whistleblower Protection Act</a></div></div></footer>
+<footer><div class="vx-bar"><div>© 2025 Pelaburan Hartanah Berhad · Integrity &amp; Governance Unit (IGU) · All reports are confidential · wb@phb.com.my · +603-7713091</div><div class="vx-links"><a href="#" onclick="showPage('pg-faq');return false;">FAQ</a><a href="#" onclick="showModal('modal-privacy');return false;">Privacy policy</a><a href="#" onclick="showModal('modal-wpa');return false;">PHB Whistleblowing Policy Statement</a></div></div></footer>
 </div>
 </div>
 <!-- ═══════════════════════════════════════
@@ -1480,18 +1498,17 @@ select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csv
 </div>
 <!-- MODAL: WPA -->
 <div class="modal-center" id="modal-wpa" onclick="closeModalCenter(event,'modal-wpa')">
-<div class="modal-box" onclick="event.stopPropagation()" style="max-width:560px;">
-<div class="modal-title">Whistleblower Protection Act 2010</div>
+<div class="modal-box" onclick="event.stopPropagation()" style="max-width:700px;">
+<div class="modal-title">PHB Whistleblowing Policy Statement</div>
 <div style="font-size:13px;color:var(--text2);line-height:1.7;margin:14px 0;">
-<p style="margin-bottom:10px;">Malaysia's Whistleblower Protection Act 2010 (WPA) provides comprehensive protection to persons who make genuine disclosures of improper conduct.</p>
-<p style="margin-bottom:10px;"><strong>Key protections include:</strong></p>
-<ul style="padding-left:16px;line-height:1.9;margin-bottom:10px;">
-<li>Protection from civil and criminal liability</li>
-<li>Confidentiality of the whistleblower's identity</li>
-<li>Protection from detrimental action (demotion, harassment, dismissal)</li>
-<li>Immunity from disciplinary proceedings</li>
-</ul>
-<p>PHB fully supports and enforces these protections internally. Any retaliation against a whistleblower is a serious disciplinary offence.</p>
+<p style="margin-bottom:10px;">Pelaburan Hartanah Berhad and its subsidiary companies (the Group) is committed to uphold a high standard of integrity, transparency, and good corporate governance in the conduct of its operations. In view of this, the PHB Whistleblowing Policy has been established to encourage and provide an avenue for a whistleblower to raise concerns of any wrongdoing without fear of reprisals. This commitment is in alignment with the Group core values <b>“P.H.B”: PROFESSIONAL, HARMONIOUS and BOLD.</b></p>
+<p style="margin-bottom:10px;">The Policy governs the disclosures, reporting and investigation of misconduct within the Group as well as the protection offered to the persons making those disclosures from detrimental action in accordance with Whistleblower Protection Act 2010.</p>
+<p style="margin-bottom:10px;"><strong>Reporting and Protection to Whistleblower</strong></p>
+<p style="margin-bottom:10px;">Reports should be made through the Group’s established whistleblowing channels, as detailed in the PHB Whistleblowing Guideline. These channels guarantee confidentiality, anonymous reports, and protection from retaliation, in line with the provisions of the Whistleblower Protection Act 2010. The Group assures that every report received will be treated with the utmost seriousness, discretion, and good faith in accordance with legal and ethical standards.</p>
+<p style="margin-bottom:10px;"><b>Whistleblowing Channels</b></p>
+<p>Whistleblower may submit a disclosure through any of the following channels:</p>
+<p>Whistleblowing email : wb@phb.com.my</p>
+<p>Whistleblowing hotline : +603 7711 3091</p>
 </div>
 <div style="text-align:right;"><button class="btn-sm primary" onclick="closeModalCenter(null,'modal-wpa')">Close</button></div>
 </div>
@@ -1580,13 +1597,28 @@ const msalConfig = {
   }
 };
 
-const msalInstance =
-  new msal.PublicClientApplication(
-    msalConfig
+// Guarded so that a blocked/failed MSAL library can never stop the rest of
+// this script (FAQ, report form, tracking, etc.) from running.
+let msalInstance = null;
+let msalReady;
+
+try {
+  msalInstance =
+    new msal.PublicClientApplication(
+      msalConfig
+    );
+
+  msalReady =
+    msalInstance.initialize();
+} catch (error) {
+  console.error(
+    'MSAL could not start - officer login disabled:',
+    error
   );
 
-const msalReady =
-  msalInstance.initialize();
+  msalReady = Promise.reject(error);
+  msalReady.catch(function () {});
+}
 
 let signedInOfficer = null;
 
